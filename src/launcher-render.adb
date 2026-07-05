@@ -131,6 +131,20 @@ package body Launcher.Render is
                Description_Color => Guikit.Draw.Muted_Text_Color);
          end;
       end loop;
+
+      --  Empty state: a query that matches nothing shows a muted message rather
+      --  than a blank void.
+      if Ranked.Is_Empty then
+         Text.Append
+           (Guikit.Draw.Text_Command'
+              (X      => Layout.Results_X + Pad,
+               Y      => Layout.Results_Y + Row_Pad,
+               Width  => (if Layout.Results_Width > 2 * Pad then Layout.Results_Width - 2 * Pad else 0),
+               Height => Line_Height,
+               Text   => To_Unbounded_String ("No matching applications"),
+               Color  => Guikit.Draw.Muted_Text_Color,
+               others => <>));
+      end if;
    end Build_Frame;
 
 end Launcher.Render;

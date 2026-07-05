@@ -67,6 +67,16 @@ package body Launcher.Model is
       M.Selected := Natural (Moved);
    end Move_Selection;
 
+   procedure Select_First (M : in out State) is
+   begin
+      M.Selected := (if Results (M).Is_Empty then 0 else 1);
+   end Select_First;
+
+   procedure Select_Last (M : in out State) is
+   begin
+      M.Selected := Natural (Results (M).Length);
+   end Select_Last;
+
    function Selected_Application
      (M   : State;
       App : out Applications.Application)

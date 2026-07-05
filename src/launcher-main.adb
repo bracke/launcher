@@ -32,6 +32,8 @@ procedure Launcher.Main is
       Pending_Enter     : Boolean := False;
       Pending_Up        : Natural := 0;
       Pending_Down      : Natural := 0;
+      Pending_Home      : Boolean := False;
+      Pending_End       : Boolean := False;
       Pending_Backspace : Natural := 0;
       Pending_Click     : Boolean := False;
       Pending_Scroll    : Integer := 0;
@@ -103,6 +105,10 @@ procedure Launcher.Main is
          Object.Pending_Up := Object.Pending_Up + 1;
       elsif Key = Glfw.Input.Keys.Down then
          Object.Pending_Down := Object.Pending_Down + 1;
+      elsif Key = Glfw.Input.Keys.Home then
+         Object.Pending_Home := True;
+      elsif Key = Glfw.Input.Keys.Key_End then
+         Object.Pending_End := True;
       elsif Key = Glfw.Input.Keys.Backspace then
          Object.Pending_Backspace := Object.Pending_Backspace + 1;
       end if;
@@ -213,6 +219,14 @@ begin
          Launcher.Model.Move_Selection (M, 1);
       end loop;
       Handle.Pending_Down := 0;
+      if Handle.Pending_Home then
+         Launcher.Model.Select_First (M);
+         Handle.Pending_Home := False;
+      end if;
+      if Handle.Pending_End then
+         Launcher.Model.Select_Last (M);
+         Handle.Pending_End := False;
+      end if;
       --  Wheel: scroll up moves the selection up, down moves it down.
       if Handle.Pending_Scroll /= 0 then
          Launcher.Model.Move_Selection (M, -Handle.Pending_Scroll);

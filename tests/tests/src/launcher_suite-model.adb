@@ -25,6 +25,7 @@ package body Launcher_Suite.Model is
    procedure Test_Insert_And_Backspace (T : in out AUnit.Test_Cases.Test_Case'Class);
    procedure Test_Move_Selection (T : in out AUnit.Test_Cases.Test_Case'Class);
    procedure Test_Results_And_Selected (T : in out AUnit.Test_Cases.Test_Case'Class);
+   procedure Test_Select_First_And_Last (T : in out AUnit.Test_Cases.Test_Case'Class);
 
    --  A model seeded with three known applications and an empty query.
    function Sample return Launcher.Model.State is
@@ -59,6 +60,8 @@ package body Launcher_Suite.Model is
         (T, Test_Move_Selection'Access, "selection movement clamps to the result range");
       AUnit.Test_Cases.Registration.Register_Routine
         (T, Test_Results_And_Selected'Access, "a query narrows results and the selection maps to an app");
+      AUnit.Test_Cases.Registration.Register_Routine
+        (T, Test_Select_First_And_Last'Access, "Home/End jump the selection to the first/last result");
    end Register_Tests;
 
    procedure Test_Insert_And_Backspace (T : in out AUnit.Test_Cases.Test_Case'Class) is
@@ -111,6 +114,23 @@ package body Launcher_Suite.Model is
       Assert (Found, "a highlighted result maps to an application");
       Assert (To_String (App.Name) = "Firefox", "the selected application is the matching one");
    end Test_Results_And_Selected;
+
+   procedure Test_Select_First_And_Last (T : in out AUnit.Test_Cases.Test_Case'Class) is
+      pragma Unreferenced (T);
+      M : Launcher.Model.State := Sample;
+   begin
+      Launcher.Model.Move_Selection (M, 1);
+      Launcher.Model.Select_First (M);
+      Assert (M.Selected = 1, "Select_First highlights the first result");
+      Launcher.Model.Select_Last (M);
+      Assert (M.Selected = 3, "Select_Last highlights the last result");
+
+      Launcher.Model.Insert (M, "zzzzzzz");
+      Launcher.Model.Select_First (M);
+      Assert (M.Selected = 0, "Select_First with no results clears the selection");
+      Launcher.Model.Select_Last (M);
+      Assert (M.Selected = 0, "Select_Last with no results clears the selection");
+   end Test_Select_First_And_Last;
 
    function Suite return AUnit.Test_Suites.Access_Test_Suite is
       Result : constant AUnit.Test_Suites.Access_Test_Suite := new AUnit.Test_Suites.Test_Suite;

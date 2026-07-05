@@ -35,6 +35,12 @@ package Launcher.Model is
    --  Move the highlighted result by Delta_Rows, clamped to the result range.
    procedure Move_Selection (M : in out State; Delta_Rows : Integer);
 
+   --  Highlight the first result (or clear the selection when there are none).
+   procedure Select_First (M : in out State);
+
+   --  Highlight the last result (or clear the selection when there are none).
+   procedure Select_Last (M : in out State);
+
    --  The application the current selection points at.
    --
    --  @param M Launcher state.
