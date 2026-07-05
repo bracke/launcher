@@ -1,3 +1,4 @@
+with Ada.Characters.Handling;
 with Ada.Strings.Unbounded;
 
 package body Launcher.Model is
@@ -6,8 +7,25 @@ package body Launcher.Model is
    Icon_Pixel_Size : constant := 48;
 
    procedure Load (M : in out State) is
+
+      --  Order the most-launched applications first; ties keep name order.
+      function More_Used (Left, Right : Applications.Application) return Boolean is
+         Lc : constant Natural := Launcher.Usage.Count (M.Usage, To_String (Left.Name));
+         Rc : constant Natural := Launcher.Usage.Count (M.Usage, To_String (Right.Name));
+      begin
+         if Lc /= Rc then
+            return Lc > Rc;
+         end if;
+         return Ada.Characters.Handling.To_Lower (To_String (Left.Name))
+                < Ada.Characters.Handling.To_Lower (To_String (Right.Name));
+      end More_Used;
+
+      package Usage_Sorting is
+        new Applications.Application_Vectors.Generic_Sorting ("<" => More_Used);
    begin
       M.Apps     := Applications.Installed;
+      M.Usage    := Launcher.Usage.Load;
+      Usage_Sorting.Sort (M.Apps);
       M.Query    := Null_Unbounded_String;
       M.Selected := 1;
       M.Offset   := 0;
@@ -18,6 +36,11 @@ package body Launcher.Model is
          M.Icons.Append (Launcher.Icons.Load (To_String (A.Icon), Icon_Pixel_Size));
       end loop;
    end Load;
+
+   procedure Record_Launch (M : in out State; App : Applications.Application) is
+   begin
+      Launcher.Usage.Record_Launch (M.Usage, To_String (App.Name));
+   end Record_Launch;
 
    function Results (M : State) return Guikit.Palette.Item_Vectors.Vector is
       Items : Guikit.Palette.Item_Vectors.Vector;

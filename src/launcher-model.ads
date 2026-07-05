@@ -2,6 +2,7 @@ with Guikit.Palette;
 
 with Launcher.Applications;
 with Launcher.Icons;
+with Launcher.Usage;
 
 --  The launcher's state and the pure operations over it: the installed
 --  applications, the search query, the highlighted result and the scroll
@@ -12,6 +13,7 @@ package Launcher.Model is
    type State is record
       Apps     : Applications.Application_Vectors.Vector;
       Icons    : Launcher.Icons.Loaded_Icon_Vectors.Vector;  --  parallel to Apps
+      Usage    : Launcher.Usage.Store;
       Query    : UString;
       Selected : Natural := 1;  --  1-based index into the current results; 0 = none
       Offset   : Natural := 0;  --  result rows scrolled off the top
@@ -42,6 +44,10 @@ package Launcher.Model is
 
    --  Highlight the last result (or clear the selection when there are none).
    procedure Select_Last (M : in out State);
+
+   --  Record that an application was launched (increments its usage count and
+   --  persists it), so it ranks higher on the next run.
+   procedure Record_Launch (M : in out State; App : Applications.Application);
 
    --  The application the current selection points at.
    --

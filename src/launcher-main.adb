@@ -383,10 +383,11 @@ begin
 
          if Handle.Pending_Enter then
             Handle.Pending_Enter := False;
-            if Launcher.Model.Selected_Application (M, App)
-              and then Launcher.Applications.Launch (App)
-            then
-               exit;
+            if Launcher.Model.Selected_Application (M, App) then
+               Launcher.Model.Record_Launch (M, App);
+               if Launcher.Applications.Launch (App) then
+                  exit;
+               end if;
             end if;
          end if;
       end;
