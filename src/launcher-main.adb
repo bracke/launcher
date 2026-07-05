@@ -6,9 +6,6 @@ with Glfw;
 with Glfw.Input.Keys;
 with Glfw.Input.Mouse;
 with Glfw.Windows;
-with Glfw.Windows.Hints;
-
-with Interfaces.C;
 
 with Guikit.Draw;
 with Guikit.Layout;
@@ -64,12 +61,6 @@ procedure Launcher.Main is
    function As_Window (Handle : Window_Access) return Glfw.Windows.Window_Reference is
      (Glfw.Windows.Window_Reference (Handle));
 
-   procedure Poll_Events
-     with Import, Convention => C, External_Name => "glfwPollEvents";
-   procedure Wait_For_Events_Timeout (Timeout : Interfaces.C.double)
-     with Import, Convention => C, External_Name => "glfwWaitEventsTimeout";
-   procedure Set_Raw_Window_Hint (Target : Interfaces.C.int; Hint : Interfaces.C.int)
-     with Import, Convention => C, External_Name => "glfwWindowHint";
 
    --  Encode one input codepoint as UTF-8, dropping control characters.
    function Text_Input_Bytes (Char : Wide_Wide_Character) return String is
@@ -197,10 +188,7 @@ begin
 
    --  Create the window.
    Glfw.Init;
-   Glfw.Windows.Hints.Reset_To_Defaults;
-   Set_Raw_Window_Hint (16#00022001#, 0);  --  GLFW_CLIENT_API => GLFW_NO_API
-   Glfw.Windows.Hints.Set_Resizable (True);
-   Glfw.Windows.Hints.Set_Visible (False);
+   Guikit.Vulkan.Configure_Window_Hints;
    Glfw.Windows.Init (As_Window (Handle), Glfw.Size (900), Glfw.Size (560), "launcher");
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Char);
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Key);
@@ -210,8 +198,8 @@ begin
 
    --  Main loop.
    while not Glfw.Windows.Should_Close (As_Window (Handle)) loop
-      Wait_For_Events_Timeout (0.05);
-      Poll_Events;
+      Guikit.Vulkan.Wait_For_Events (0.05);
+      Guikit.Vulkan.Poll_Events;
 
       if Length (Handle.Pending_Text) > 0 then
          Launcher.Model.Insert (M, To_String (Handle.Pending_Text));
