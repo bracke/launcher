@@ -32,7 +32,12 @@ frame/glyph building (`Launcher.Render`), and the window + main loop
 alr build
 bin/launcher              # open the launcher window
 bin/launcher --list       # print the discovered applications + icon status, then exit
+bin/launcher --smoke      # render a few frames, verify via framebuffer readback, then exit
 ```
+
+`--smoke` is a headless render gate (needs Vulkan + a display): it renders the app
+list, reads back the framebuffer, and confirms the window, search box, results and
+the icon gutter each hold ink, exiting non-zero if not.
 
 Requires sibling checkouts of `../guikit` and `../textrender`, a Vulkan driver and
 a display, plus the system `gdk-pixbuf-2.0` library (icon loading) — files links

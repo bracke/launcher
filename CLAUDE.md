@@ -11,7 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Built with Alire (`alr`).
 
 - `alr build` — compile the app (`bin/launcher`). Style is checked at compile time.
-- `alr test` — the AUnit suite in `tests/` (its own crate; compiles the launcher sources minus the GUI main so it can exercise the domain directly).
+- `alr test` — the AUnit suite in `tests/` (its own crate; compiles the launcher sources minus the GUI main so it can exercise the domain directly). This is pure logic — no GPU.
+- `bin/launcher --smoke` — the render gate (needs Vulkan + a display): renders a few frames and confirms via `Guikit.Vulkan` framebuffer readback that the window, search box, results and icon gutter drew, exiting non-zero otherwise. Use this to verify rendering changes, since the AUnit suite can't.
 - `tools/bin/release_check` — release-readiness checks (a `tools/` sub-crate built on `project_tools`); run `alr build` inside `tools/` first.
 
 ## Reuse guikit first

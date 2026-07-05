@@ -157,6 +157,98 @@ procedure Launcher.Main is
    Ignore_St    : Guikit.Vulkan.Vulkan_Status;
    Ignore_Ts    : Guikit.Draw.Text_Render_Status;
    pragma Unreferenced (Ignore_St, Ignore_Ts);
+
+   --  Render one frame: bring the swapchain up, build and submit the palette,
+   --  and present. Returns the laid-out rows for click hit-testing.
+   procedure Draw_Frame
+     (Win  : Window_Access;
+      Vk   : in out Guikit.Vulkan.Vulkan_Renderer;
+      Txt  : in out Guikit.Text.Renderer;
+      Mdl  : in out Launcher.Model.State;
+      Rows : out Guikit.Layout.Palette_Result_Row_Vectors.Vector)
+   is
+      Window_W, Window_H : Glfw.Size;
+      Frame_W,  Frame_H  : Glfw.Size;
+   begin
+      Rows := Guikit.Layout.Palette_Result_Row_Vectors.Empty_Vector;
+      Glfw.Windows.Get_Size (As_Window (Win), Window_W, Window_H);
+      Glfw.Windows.Get_Framebuffer_Size (As_Window (Win), Frame_W, Frame_H);
+      Guikit.Vulkan.Ensure_Ready (Vk, As_Window (Win), Natural (Frame_W), Natural (Frame_H));
+      if not Guikit.Vulkan.Swapchain_Ready (Vk) then
+         return;
+      end if;
+
+      declare
+         Ranked : constant Guikit.Palette.Item_Vectors.Vector := Launcher.Model.Results (Mdl);
+         Rects  : Guikit.Draw.Rectangle_Command_Vectors.Vector;
+         Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
+         Icons  : Guikit.Draw.Icon_Command_Vectors.Vector;
+         No_Tri        : Guikit.Draw.Triangle_Command_Vectors.Vector;
+         No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
+         No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
+         Metrics : constant Guikit.Draw.Layout_Metrics :=
+           (Width => Natural (Window_W), Height => Natural (Window_H), others => 0);
+         Glyphs  : Guikit.Draw.Text_Render_Result;
+         Batch   : Guikit.Vulkan.Submission_Batch;
+      begin
+         Launcher.Render.Build_Frame
+           (Mdl, Ranked, Natural (Window_W), Natural (Window_H), Line_Height,
+            Win.Mouse_X, Win.Mouse_Y, Rects, Texts, Icons, Rows);
+         Glyphs := Guikit.Text.Build_Glyphs (Txt, Texts, No_Overlay_Tx);
+         Batch  :=
+           Guikit.Vulkan.Build_Submission
+             (Rects, No_Tri, Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);
+         Ignore_St :=
+           Guikit.Vulkan.Present_Frame (Vk, Batch, Natural (Frame_W), Natural (Frame_H));
+      end;
+   end Draw_Frame;
+
+   --  Headless render check: enable framebuffer readback, render a few frames of
+   --  the full app list, and confirm the window, search box and results region
+   --  each hold ink. Returns True when the frame rendered as expected.
+   function Smoke_Passes
+     (Win : Window_Access;
+      Vk  : in out Guikit.Vulkan.Vulkan_Renderer;
+      Txt : in out Guikit.Text.Renderer;
+      Mdl : in out Launcher.Model.State)
+      return Boolean
+   is
+      Rows : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
+      Frame_W, Frame_H : Glfw.Size;
+   begin
+      Mdl.Query    := Null_Unbounded_String;
+      Mdl.Selected := 1;
+      Mdl.Offset   := 0;
+      Guikit.Vulkan.Set_Readback_Enabled (Vk, True);
+      for I in 1 .. 6 loop
+         Draw_Frame (Win, Vk, Txt, Mdl, Rows);
+      end loop;
+
+      Glfw.Windows.Get_Framebuffer_Size (As_Window (Win), Frame_W, Frame_H);
+      declare
+         FW : constant Natural := Natural (Frame_W);
+         FH : constant Natural := Natural (Frame_H);
+         Overall : constant Boolean :=
+           Guikit.Vulkan.Readback_Region_Has_Ink (Vk, 0, 0, FW, FH, 0.003);
+         Search  : constant Boolean :=
+           Guikit.Vulkan.Readback_Region_Has_Ink (Vk, 0, FH / 40, FW, FH / 8, 0.001);
+         Results : constant Boolean :=
+           Guikit.Vulkan.Readback_Region_Has_Ink (Vk, 0, FH / 4, FW, FH / 2, 0.001);
+         --  Left icon gutter over the results: ink here means app icons drew.
+         Icon_Ink : constant Float :=
+           Guikit.Vulkan.Readback_Region_Ink_Fraction (Vk, 2, FH / 4, 48, FH / 2);
+         Icons_Ok : constant Boolean := Icon_Ink > 0.001;
+      begin
+         Ada.Text_IO.Put_Line
+           ("launcher smoke: overall=" & Boolean'Image (Overall)
+            & " search=" & Boolean'Image (Search)
+            & " results=" & Boolean'Image (Results)
+            & " icons=" & Boolean'Image (Icons_Ok)
+            & " (gutter ink" & Float'Image (Icon_Ink) & ")");
+         return Overall and then Search and then Results and then Icons_Ok;
+      end;
+   end Smoke_Passes;
+
 begin
    Launcher.Model.Load (M);
 
@@ -217,6 +309,23 @@ begin
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Mouse_Scroll);
    Glfw.Windows.Show (As_Window (Handle));
 
+   --  Headless render check: render a few frames and confirm the frame drew.
+   if Ada.Command_Line.Argument_Count >= 1
+     and then Ada.Command_Line.Argument (1) = "--smoke"
+   then
+      declare
+         Passed : constant Boolean := Smoke_Passes (Handle, Vulkan, Text, M);
+      begin
+         Ada.Text_IO.Put_Line ("launcher smoke: " & (if Passed then "PASS" else "FAIL"));
+         if not Passed then
+            Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
+         end if;
+      end;
+      Guikit.Vulkan.Shutdown (Vulkan);
+      Glfw.Shutdown;
+      return;
+   end if;
+
    --  Main loop.
    while not Glfw.Windows.Should_Close (As_Window (Handle)) loop
       Guikit.Vulkan.Wait_For_Events (0.05);
@@ -254,64 +363,31 @@ begin
       exit when Handle.Pending_Escape;
 
       declare
-         Window_W, Window_H : Glfw.Size;
-         Frame_W,  Frame_H  : Glfw.Size;
+         Rows : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
+         App  : Launcher.Applications.Application;
       begin
-         Glfw.Windows.Get_Size (As_Window (Handle), Window_W, Window_H);
-         Glfw.Windows.Get_Framebuffer_Size (As_Window (Handle), Frame_W, Frame_H);
+         Draw_Frame (Handle, Vulkan, Text, M, Rows);
 
-         Guikit.Vulkan.Ensure_Ready
-           (Vulkan, As_Window (Handle), Natural (Frame_W), Natural (Frame_H));
-
-         if Guikit.Vulkan.Swapchain_Ready (Vulkan) then
+         if Handle.Pending_Click then
+            Handle.Pending_Click := False;
             declare
-               Ranked : constant Guikit.Palette.Item_Vectors.Vector := Launcher.Model.Results (M);
-               Rects  : Guikit.Draw.Rectangle_Command_Vectors.Vector;
-               Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
-               Rows   : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
-               No_Tri        : Guikit.Draw.Triangle_Command_Vectors.Vector;
-               Icons         : Guikit.Draw.Icon_Command_Vectors.Vector;
-               No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
-               No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
-               Metrics : constant Guikit.Draw.Layout_Metrics :=
-                 (Width => Natural (Window_W), Height => Natural (Window_H), others => 0);
-               Glyphs  : Guikit.Draw.Text_Render_Result;
-               Batch   : Guikit.Vulkan.Submission_Batch;
-               App     : Launcher.Applications.Application;
+               Hit : constant Natural :=
+                 Guikit.Layout.Palette_Result_At (Rows, Handle.Mouse_X, Handle.Mouse_Y);
             begin
-               Launcher.Render.Build_Frame
-                 (M, Ranked, Natural (Window_W), Natural (Window_H), Line_Height,
-                  Handle.Mouse_X, Handle.Mouse_Y, Rects, Texts, Icons, Rows);
-
-               if Handle.Pending_Click then
-                  Handle.Pending_Click := False;
-                  declare
-                     Hit : constant Natural :=
-                       Guikit.Layout.Palette_Result_At (Rows, Handle.Mouse_X, Handle.Mouse_Y);
-                  begin
-                     if Hit > 0 then
-                        M.Selected := Hit;
-                        Handle.Pending_Enter := True;
-                     end if;
-                  end;
+               if Hit > 0 then
+                  M.Selected := Hit;
+                  Handle.Pending_Enter := True;
                end if;
-
-               if Handle.Pending_Enter then
-                  Handle.Pending_Enter := False;
-                  if Launcher.Model.Selected_Application (M, App)
-                    and then Launcher.Applications.Launch (App)
-                  then
-                     exit;
-                  end if;
-               end if;
-
-               Glyphs := Guikit.Text.Build_Glyphs (Text, Texts, No_Overlay_Tx);
-               Batch  :=
-                 Guikit.Vulkan.Build_Submission
-                   (Rects, No_Tri, Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);
-               Ignore_St :=
-                 Guikit.Vulkan.Present_Frame (Vulkan, Batch, Natural (Frame_W), Natural (Frame_H));
             end;
+         end if;
+
+         if Handle.Pending_Enter then
+            Handle.Pending_Enter := False;
+            if Launcher.Model.Selected_Application (M, App)
+              and then Launcher.Applications.Launch (App)
+            then
+               exit;
+            end if;
          end if;
       end;
    end loop;
