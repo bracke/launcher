@@ -2,7 +2,8 @@
 
 A minimal, keyboard-driven application launcher for Linux, built on the
 [`guikit`](../guikit) toolkit. Type to fuzzy-filter your installed applications,
-arrow keys to move the selection, **Enter** to launch, **Escape** to quit.
+arrow keys (or the mouse wheel) to move the selection, **Home**/**End** to jump,
+**Enter** to launch, **Escape** to quit. Each result shows the application's icon.
 
 It exists mainly as a *second consumer* of guikit — proof that the reusable
 pieces extracted from the `files` file manager (fuzzy search, palette layout,
@@ -20,7 +21,8 @@ without re-implementing any of them.
 - **`Textrender`** — font loading + the glyph atlas.
 
 The app itself (this crate) supplies only the domain: scanning XDG `.desktop`
-applications (`Launcher.Applications`), the model + state (`Launcher.Model`), the
+applications (`Launcher.Applications`), resolving + decoding their icons
+(`Launcher.Icons`, via gdk_pixbuf), the model + state (`Launcher.Model`), the
 frame/glyph building (`Launcher.Render`), and the window + main loop
 (`Launcher.Main`).
 
@@ -29,11 +31,12 @@ frame/glyph building (`Launcher.Render`), and the window + main loop
 ```sh
 alr build
 bin/launcher              # open the launcher window
-bin/launcher --list       # print the discovered applications and exit
+bin/launcher --list       # print the discovered applications + icon status, then exit
 ```
 
-Requires sibling checkouts of `../guikit` and `../textrender`, plus a Vulkan
-driver and a display.
+Requires sibling checkouts of `../guikit` and `../textrender`, a Vulkan driver and
+a display, plus the system `gdk-pixbuf-2.0` library (icon loading) — files links
+the same library.
 
 ## License
 

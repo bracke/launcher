@@ -16,7 +16,7 @@ Built with Alire (`alr`).
 
 ## Reuse guikit first
 
-Most UI capability lives in `../guikit`, not here. Before adding rendering/input/layout code, check whether guikit already provides it: `Guikit.Palette` (fuzzy search), `Guikit.Layout` (palette geometry + hit-testing), `Guikit.Widgets` (panel/input field/palette row), `Guikit.Text` (fonts + glyph atlas), `Guikit.Vulkan` (window hints, event pump, `Ensure_Ready`/`Present_Frame`), `Guikit.Utf8`. This crate should only hold app-specific logic: `Launcher.Applications` (XDG `.desktop` scan + spawn), `Launcher.Model` (state; filtering delegated to `Guikit.Palette`), `Launcher.Fonts`, `Launcher.Render` (frame builder), `Launcher.Main` (GLFW window subclass + input callbacks + main loop).
+Most UI capability lives in `../guikit`, not here. Before adding rendering/input/layout code, check whether guikit already provides it: `Guikit.Palette` (fuzzy search), `Guikit.Layout` (palette geometry + hit-testing), `Guikit.Widgets` (panel/input field/palette row), `Guikit.Text` (fonts + glyph atlas), `Guikit.Vulkan` (window hints, event pump, `Ensure_Ready`/`Present_Frame`), `Guikit.Utf8`. This crate should only hold app-specific logic: `Launcher.Applications` (XDG `.desktop` scan + spawn), `Launcher.Icons` (XDG icon-name resolution + PNG/SVG decode via gdk_pixbuf), `Launcher.Model` (state; filtering delegated to `Guikit.Palette`), `Launcher.Fonts`, `Launcher.Render` (frame builder), `Launcher.Main` (GLFW window subclass + input callbacks + main loop).
 
 If something is missing from guikit and is generic to GUI apps, **extract it into guikit** rather than implementing it here.
 
@@ -26,7 +26,7 @@ Where the launcher does less than `../files`, treat it as a feature **not yet bu
 
 ## Dependencies
 
-`alire.toml` pins `guikit` → `../guikit` and `textrender` → `../textrender` (relative paths, not published crates); `df_vulkan` / `openglada_glfw` / `utilada` resolve from the Alire index. Builds fail unless those sibling checkouts exist. Locale support (via `i18n`) is planned but not yet added.
+`alire.toml` pins `guikit` → `../guikit` and `textrender` → `../textrender` (relative paths, not published crates); `df_vulkan` / `openglada_glfw` / `utilada` resolve from the Alire index. Builds fail unless those sibling checkouts exist. The linker (`launcher.gpr`, and the test crate) also needs the system `gdk-pixbuf-2.0` / `gobject-2.0` / `glib-2.0` libraries for icon decoding. Locale support (via `i18n`) is planned but not yet added.
 
 ## Code style (enforced by the compiler)
 
