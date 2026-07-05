@@ -1,0 +1,30 @@
+with "config/launcher_tests_config.gpr";
+project Launcher_Tests is
+
+   --  Compile the launcher's own sources alongside the tests (excluding the GUI
+   --  main), so the suite can exercise the domain packages directly.
+   for Source_Dirs use ("tests/src/", "../src/", "config/");
+   for Excluded_Source_Files use ("launcher-main.adb");
+   for Object_Dir use "obj/" & Launcher_Tests_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("launcher_tests.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        Launcher_Tests_Config.Ada_Compiler_Switches & ("-gnat2022", "-gnatyM120", "-gnatX", "-gnatwU");
+   end Compiler;
+
+   package Binder is
+      for Switches ("Ada") use ("-Es"); --  Symbolic traceback
+   end Binder;
+
+   package Linker is
+      for Default_Switches ("Ada") use ("-lvulkan");
+   end Linker;
+
+   package Builder is
+      for Executable ("launcher_tests.adb") use "launcher_tests";
+   end Builder;
+
+end Launcher_Tests;

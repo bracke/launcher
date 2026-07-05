@@ -34,4 +34,11 @@ package Launcher.Applications is
    --  @return True when the process was spawned.
    function Launch (App : Application) return Boolean;
 
+   --  Strip freedesktop Exec field codes (%f %F %u %U %i %c %k %d ...), leaving
+   --  a runnable command; a literal "%%" becomes "%". Exposed for testing.
+   --
+   --  @param Exec A .desktop Exec value.
+   --  @return The command with field codes removed and trimmed.
+   function Strip_Field_Codes (Exec : String) return String;
+
 end Launcher.Applications;
