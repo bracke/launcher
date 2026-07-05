@@ -8,7 +8,7 @@ package body Launcher.Render is
 
 
    procedure Build_Frame
-     (M           : Launcher.Model.State;
+     (M           : in out Launcher.Model.State;
       Ranked      : Guikit.Palette.Item_Vectors.Vector;
       Width       : Natural;
       Height      : Natural;
@@ -73,6 +73,15 @@ package body Launcher.Render is
       for Item of Ranked loop
          Enabled.Append (Item.Enabled);
       end loop;
+
+      --  Scroll so the highlighted result stays on screen.
+      M.Offset :=
+        Guikit.Layout.Scroll_Offset_For_Selection
+          (Selected       => M.Selected,
+           Result_Count   => Natural (Ranked.Length),
+           Visible_Rows   =>
+             (if Layout.Row_Height = 0 then 0 else Layout.Results_Height / Layout.Row_Height),
+           Current_Offset => M.Offset);
       Rows := Guikit.Layout.Calculate_Palette_Result_Rows (Layout, Enabled, M.Selected, M.Offset);
 
       for Row of Rows loop

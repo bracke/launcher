@@ -34,6 +34,7 @@ procedure Launcher.Main is
       Pending_Down      : Natural := 0;
       Pending_Backspace : Natural := 0;
       Pending_Click     : Boolean := False;
+      Pending_Scroll    : Integer := 0;
       Mouse_X           : Integer := -1;
       Mouse_Y           : Integer := -1;
    end record;
@@ -56,6 +57,10 @@ procedure Launcher.Main is
      (Object : not null access Launcher_Window;
       X      : Glfw.Input.Mouse.Coordinate;
       Y      : Glfw.Input.Mouse.Coordinate);
+   overriding procedure Mouse_Scrolled
+     (Object : not null access Launcher_Window;
+      X      : Glfw.Input.Mouse.Scroll_Offset;
+      Y      : Glfw.Input.Mouse.Scroll_Offset);
 
    type Window_Access is access all Launcher_Window;
 
@@ -127,6 +132,18 @@ procedure Launcher.Main is
       Object.Mouse_Y := Integer (Y);
    end Mouse_Position_Changed;
 
+   overriding procedure Mouse_Scrolled
+     (Object : not null access Launcher_Window;
+      X      : Glfw.Input.Mouse.Scroll_Offset;
+      Y      : Glfw.Input.Mouse.Scroll_Offset)
+   is
+      pragma Unreferenced (X);
+   begin
+      --  Accumulate whole wheel notches; the main loop turns them into selection
+      --  movement (wheel up moves the highlight up).
+      Object.Pending_Scroll := Object.Pending_Scroll + Integer (Y);
+   end Mouse_Scrolled;
+
    Handle       : constant Window_Access := new Launcher_Window;
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
    Text         : Guikit.Text.Renderer;
@@ -172,6 +189,7 @@ begin
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Key);
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Mouse_Button);
    Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Mouse_Position);
+   Glfw.Windows.Enable_Callback (As_Window (Handle), Glfw.Windows.Callbacks.Mouse_Scroll);
    Glfw.Windows.Show (As_Window (Handle));
 
    --  Main loop.
@@ -195,6 +213,11 @@ begin
          Launcher.Model.Move_Selection (M, 1);
       end loop;
       Handle.Pending_Down := 0;
+      --  Wheel: scroll up moves the selection up, down moves it down.
+      if Handle.Pending_Scroll /= 0 then
+         Launcher.Model.Move_Selection (M, -Handle.Pending_Scroll);
+         Handle.Pending_Scroll := 0;
+      end if;
       exit when Handle.Pending_Escape;
 
       declare

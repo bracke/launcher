@@ -25,7 +25,7 @@ package Launcher.Render is
    --  @param Text Out: the frame's text commands.
    --  @param Rows Out: the laid-out result rows (for click hit-testing).
    procedure Build_Frame
-     (M           : Launcher.Model.State;
+     (M           : in out Launcher.Model.State;
       Ranked      : Guikit.Palette.Item_Vectors.Vector;
       Width       : Natural;
       Height      : Natural;
