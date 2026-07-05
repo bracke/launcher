@@ -152,7 +152,6 @@ procedure Launcher.Main is
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
    Text         : Guikit.Text.Renderer;
    M            : Launcher.Model.State;
-   Vulkan_Ready : Boolean := False;
    Ignore_St    : Guikit.Vulkan.Vulkan_Status;
    Ignore_Ts    : Guikit.Draw.Text_Render_Status;
    pragma Unreferenced (Ignore_St, Ignore_Ts);
@@ -226,21 +225,11 @@ begin
          Glfw.Windows.Get_Size (As_Window (Handle), Window_W, Window_H);
          Glfw.Windows.Get_Framebuffer_Size (As_Window (Handle), Frame_W, Frame_H);
 
-         if not Vulkan_Ready then
-            Ignore_St := Guikit.Vulkan.Initialize (Vulkan);
-            if Guikit.Vulkan.Ready (Vulkan) then
-               Ignore_St := Guikit.Vulkan.Create_Surface (Vulkan, As_Window (Handle));
-               if Guikit.Vulkan.Surface_Ready (Vulkan) then
-                  Ignore_St :=
-                    Guikit.Vulkan.Configure_Swapchain (Vulkan, Natural (Frame_W), Natural (Frame_H));
-                  Vulkan_Ready := Guikit.Vulkan.Swapchain_Ready (Vulkan);
-               end if;
-            end if;
-         end if;
+         Guikit.Vulkan.Ensure_Ready
+           (Vulkan, As_Window (Handle), Natural (Frame_W), Natural (Frame_H));
 
-         if Vulkan_Ready then
+         if Guikit.Vulkan.Swapchain_Ready (Vulkan) then
             declare
-               use type Guikit.Vulkan.Vulkan_Status;
                Ranked : constant Guikit.Palette.Item_Vectors.Vector := Launcher.Model.Results (M);
                Rects  : Guikit.Draw.Rectangle_Command_Vectors.Vector;
                Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
@@ -285,11 +274,8 @@ begin
                Batch  :=
                  Guikit.Vulkan.Build_Submission
                    (Rects, No_Tri, No_Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);
-               Ignore_St := Guikit.Vulkan.Present (Vulkan, Batch);
-               if Guikit.Vulkan.Status (Vulkan) = Guikit.Vulkan.Vulkan_Swapchain_Recreate_Needed then
-                  Guikit.Vulkan.Request_Swapchain_Recreate
-                    (Vulkan, Natural (Frame_W), Natural (Frame_H));
-               end if;
+               Ignore_St :=
+                 Guikit.Vulkan.Present_Frame (Vulkan, Batch, Natural (Frame_W), Natural (Frame_H));
             end;
          end if;
       end;
