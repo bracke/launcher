@@ -1,0 +1,23 @@
+with Ada.Containers.Indefinite_Vectors;
+
+--  Font discovery for the launcher: a monospace primary face plus a small
+--  fallback chain (symbols / broad Unicode) so labels with the odd non-Latin
+--  glyph still render. Only paths that exist on disk are returned.
+package Launcher.Fonts is
+
+   package Path_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => String);
+
+   --  Path to the monospace primary font, or "" if none of the candidates
+   --  exist on this system.
+   --
+   --  @return An existing monospace .ttf path, or the empty string.
+   function Primary return String;
+
+   --  Existing fallback font paths (broad Unicode / symbol faces), in order.
+   --
+   --  @return The fallback font paths that exist on disk.
+   function Fallbacks return Path_Vectors.Vector;
+
+end Launcher.Fonts;
