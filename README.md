@@ -3,7 +3,8 @@
 A minimal, keyboard-driven application launcher for Linux, built on the
 [`guikit`](../guikit) toolkit. Type to fuzzy-filter your installed applications,
 arrow keys (or the mouse wheel) to move the selection, **Home**/**End** to jump,
-**Enter** to launch, **Escape** to quit. Each result shows the application's icon.
+**Enter** to launch, **Escape** to quit. Each result shows the application's icon,
+and the applications you launch most float to the top.
 
 It exists mainly as a *second consumer* of guikit — proof that the reusable
 pieces extracted from the `files` file manager (fuzzy search, palette layout,
