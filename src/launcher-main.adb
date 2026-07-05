@@ -11,6 +11,7 @@ with Guikit.Draw;
 with Guikit.Layout;
 with Guikit.Palette;
 with Guikit.Text;
+with Guikit.Utf8;
 with Guikit.Vulkan;
 
 with Launcher.Applications;
@@ -63,38 +64,16 @@ procedure Launcher.Main is
 
 
    --  Encode one input codepoint as UTF-8, dropping control characters.
-   function Text_Input_Bytes (Char : Wide_Wide_Character) return String is
-      Code : constant Natural := Wide_Wide_Character'Pos (Char);
-      function Byte (Value : Natural) return Character is (Character'Val (Value));
-   begin
-      if Code < Character'Pos (' ')
-        or else (Code >= 16#D800# and then Code <= 16#DFFF#)
-        or else Code > 16#10FFFF#
-      then
-         return "";
-      elsif Code < 16#80# then
-         return (1 => Byte (Code));
-      elsif Code < 16#800# then
-         return (Byte (16#C0# + Code / 64), Byte (16#80# + Code mod 64));
-      elsif Code < 16#1_0000# then
-         return
-           (Byte (16#E0# + Code / 4096),
-            Byte (16#80# + (Code / 64) mod 64),
-            Byte (16#80# + Code mod 64));
-      else
-         return
-           (Byte (16#F0# + Code / 262_144),
-            Byte (16#80# + (Code / 4096) mod 64),
-            Byte (16#80# + (Code / 64) mod 64),
-            Byte (16#80# + Code mod 64));
-      end if;
-   end Text_Input_Bytes;
-
    overriding procedure Character_Entered
      (Object : not null access Launcher_Window;
-      Char   : Wide_Wide_Character) is
+      Char   : Wide_Wide_Character)
+   is
+      Code : constant Natural := Wide_Wide_Character'Pos (Char);
    begin
-      Append (Object.Pending_Text, Text_Input_Bytes (Char));
+      --  Ignore control characters; Guikit.Utf8.Encode handles the UTF-8 bytes.
+      if Code >= Character'Pos (' ') then
+         Append (Object.Pending_Text, Guikit.Utf8.Encode (Code));
+      end if;
    end Character_Entered;
 
    overriding procedure Key_Changed
