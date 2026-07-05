@@ -13,9 +13,8 @@ with Interfaces.C;
 with Guikit.Draw;
 with Guikit.Layout;
 with Guikit.Palette;
+with Guikit.Text;
 with Guikit.Vulkan;
-
-with Textrender;
 
 with Launcher.Applications;
 with Launcher.Fonts;
@@ -160,12 +159,12 @@ procedure Launcher.Main is
 
    Handle       : constant Window_Access := new Launcher_Window;
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
-   Text         : Textrender.Renderer;
+   Text         : Guikit.Text.Renderer;
    M            : Launcher.Model.State;
    Vulkan_Ready : Boolean := False;
    Ignore_St    : Guikit.Vulkan.Vulkan_Status;
-   Ignore_Tr    : Textrender.Status_Code;
-   pragma Unreferenced (Ignore_St, Ignore_Tr);
+   Ignore_Ts    : Guikit.Draw.Text_Render_Status;
+   pragma Unreferenced (Ignore_St, Ignore_Ts);
 begin
    Launcher.Model.Load (M);
 
@@ -186,17 +185,14 @@ begin
       if Primary = "" then
          return;
       end if;
-      Ignore_Tr :=
-        Textrender.Load_Font
-          (Text, Primary,
+      Ignore_Ts :=
+        Guikit.Text.Initialize
+          (Text, Primary, Launcher.Fonts.Fallbacks,
            Pixel_Size   => 18,
            Cell_Width   => 14,
            Cell_Height  => Line_Height,
            Atlas_Width  => 1024,
            Atlas_Height => 1024);
-      for Fallback of Launcher.Fonts.Fallbacks loop
-         Ignore_Tr := Textrender.Add_Fallback_Font (Text, Fallback);
-      end loop;
    end;
 
    --  Create the window.
@@ -261,9 +257,10 @@ begin
                Rects  : Guikit.Draw.Rectangle_Command_Vectors.Vector;
                Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
                Rows   : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
-               No_Tri     : Guikit.Draw.Triangle_Command_Vectors.Vector;
-               No_Icons   : Guikit.Draw.Icon_Command_Vectors.Vector;
-               No_Overlay : Guikit.Draw.Rectangle_Command_Vectors.Vector;
+               No_Tri        : Guikit.Draw.Triangle_Command_Vectors.Vector;
+               No_Icons      : Guikit.Draw.Icon_Command_Vectors.Vector;
+               No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
+               No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
                Metrics : constant Guikit.Draw.Layout_Metrics :=
                  (Width => Natural (Window_W), Height => Natural (Window_H), others => 0);
                Glyphs  : Guikit.Draw.Text_Render_Result;
@@ -296,7 +293,7 @@ begin
                   end if;
                end if;
 
-               Glyphs := Launcher.Render.Build_Glyphs (Text, Texts, Line_Height);
+               Glyphs := Guikit.Text.Build_Glyphs (Text, Texts, No_Overlay_Tx);
                Batch  :=
                  Guikit.Vulkan.Build_Submission
                    (Rects, No_Tri, No_Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);

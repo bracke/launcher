@@ -1,115 +1,11 @@
 with Ada.Strings.Unbounded;
-with System;
 
 with Guikit.Utf8;
 with Guikit.Widgets;
 
 package body Launcher.Render is
    use Ada.Strings.Unbounded;
-   use type Textrender.Status_Code;
 
-   --  Decode the UTF-8 codepoint starting at Start; Next is the index of the
-   --  byte after it. Malformed input is treated one byte at a time.
-   procedure Decode_Next
-     (S     : String;
-      Start : Integer;
-      CP    : out Natural;
-      Next  : out Integer)
-   is
-      function B (I : Integer) return Natural is (Character'Pos (S (I)));
-      B0 : constant Natural := B (Start);
-   begin
-      if B0 < 16#80# then
-         CP := B0;
-         Next := Start + 1;
-      elsif B0 < 16#E0# and then Start + 1 <= S'Last then
-         CP := ((B0 mod 32) * 64) + (B (Start + 1) mod 64);
-         Next := Start + 2;
-      elsif B0 < 16#F0# and then Start + 2 <= S'Last then
-         CP := ((B0 mod 16) * 4096) + ((B (Start + 1) mod 64) * 64) + (B (Start + 2) mod 64);
-         Next := Start + 3;
-      elsif Start + 3 <= S'Last then
-         CP := ((B0 mod 8) * 262_144) + ((B (Start + 1) mod 64) * 4096)
-               + ((B (Start + 2) mod 64) * 64) + (B (Start + 3) mod 64);
-         Next := Start + 4;
-      else
-         CP := B0;
-         Next := Start + 1;
-      end if;
-   end Decode_Next;
-
-   function Build_Glyphs
-     (Text        : in out Textrender.Renderer;
-      Commands    : Guikit.Draw.Text_Command_Vectors.Vector;
-      Line_Height : Positive)
-      return Guikit.Draw.Text_Render_Result
-   is
-      pragma Unreferenced (Line_Height);
-      Result : Guikit.Draw.Text_Render_Result;
-      Cell_W : constant Natural := Textrender.Cell_Width (Text);
-   begin
-      for Cmd of Commands loop
-         declare
-            S         : constant String := To_String (Cmd.Text);
-            Index     : Integer := S'First;
-            Cell      : Natural := 0;
-            Box_Right : constant Float := Float (Cmd.X) + Float (Cmd.Width);
-         begin
-            while Index <= S'Last loop
-               declare
-                  CP     : Natural;
-                  Next   : Integer;
-                  Cell_X : constant Float := Float (Cmd.X) + Float (Cell * Cell_W);
-                  Metric : Textrender.Glyph_Metric;
-                  Status : Textrender.Status_Code;
-               begin
-                  exit when Cell_X + Float (Cell_W) > Box_Right + 0.5;
-                  Decode_Next (S, Index, CP, Next);
-                  Status := Textrender.Get_Glyph (Text, Textrender.Codepoint (CP), Metric);
-                  if (Status = Textrender.Success or else Status = Textrender.Glyph_Missing)
-                    and then Metric.W > 0 and then Metric.H > 0
-                  then
-                     declare
-                        P : constant Textrender.Glyph_Placement :=
-                          Textrender.Place_Glyph_In_Cell (Text, Metric, Cell_X, Float (Cmd.Y));
-                     begin
-                        Result.Glyphs.Append
-                          (Guikit.Draw.Glyph_Command'
-                             (X         => P.X,
-                              Y         => P.Y,
-                              Width     => Float (Metric.W),
-                              Height    => Float (Metric.H),
-                              U0        => Metric.U0,
-                              V0        => Metric.V0,
-                              U1        => Metric.U1,
-                              V1        => Metric.V1,
-                              Color     => Cmd.Color,
-                              Codepoint => CP));
-                     end;
-                  end if;
-                  Cell  := Cell + 1;
-                  Index := Next;
-               end;
-            end loop;
-         end;
-      end loop;
-
-      declare
-         Pixels : constant access constant Textrender.Alpha_Buffer := Textrender.Atlas_Pixels (Text);
-      begin
-         Result.Status       := Guikit.Draw.Text_Render_Success;
-         Result.Atlas_Width  := Textrender.Atlas_Width (Text);
-         Result.Atlas_Height := Textrender.Atlas_Height (Text);
-         Result.Atlas_Bytes  := Result.Atlas_Width * Result.Atlas_Height;
-         Result.Atlas_Dirty  := Textrender.Atlas_Dirty (Text);
-         if Pixels /= null and then Pixels.all'Length > 0 then
-            Result.Atlas_Pixels := Pixels.all (Pixels.all'First)'Address;
-         else
-            Result.Atlas_Pixels := System.Null_Address;
-         end if;
-      end;
-      return Result;
-   end Build_Glyphs;
 
    procedure Build_Frame
      (M           : Launcher.Model.State;

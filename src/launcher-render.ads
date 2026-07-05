@@ -1,7 +1,6 @@
 with Guikit.Draw;
 with Guikit.Layout;
 with Guikit.Palette;
-with Textrender;
 
 with Launcher.Model;
 
@@ -10,18 +9,6 @@ with Launcher.Model;
 --  frame's text through Textrender into the glyph/atlas result the Vulkan
 --  backend uploads. The layout and per-row drawing are reused from guikit.
 package Launcher.Render is
-
-   --  Rasterize a frame's text commands into glyph quads + atlas upload data.
-   --
-   --  @param Text Loaded Textrender renderer (primary + fallback fonts).
-   --  @param Commands The frame's text commands.
-   --  @param Line_Height Text line height in pixels (the monospace cell height).
-   --  @return The glyph quads and shared atlas the backend uploads.
-   function Build_Glyphs
-     (Text        : in out Textrender.Renderer;
-      Commands    : Guikit.Draw.Text_Command_Vectors.Vector;
-      Line_Height : Positive)
-      return Guikit.Draw.Text_Render_Result;
 
    --  Build the launcher frame: the panel, the search box + query + caret, and
    --  the visible result rows. Also returns the laid-out rows so the caller can

@@ -35,8 +35,8 @@ package body Launcher.Fonts is
       return "";
    end Primary;
 
-   function Fallbacks return Path_Vectors.Vector is
-      Result : Path_Vectors.Vector;
+   function Fallbacks return Guikit.Text.Font_Path_Vectors.Vector is
+      Result : Guikit.Text.Font_Path_Vectors.Vector;
    begin
       for Candidate of Fallback_Candidates loop
          if Exists (Candidate.all) then
