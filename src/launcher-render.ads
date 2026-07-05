@@ -34,6 +34,7 @@ package Launcher.Render is
       Hover_Y     : Integer;
       Rectangles  : out Guikit.Draw.Rectangle_Command_Vectors.Vector;
       Text        : out Guikit.Draw.Text_Command_Vectors.Vector;
+      Icons       : out Guikit.Draw.Icon_Command_Vectors.Vector;
       Rows        : out Guikit.Layout.Palette_Result_Row_Vectors.Vector);
 
 end Launcher.Render;

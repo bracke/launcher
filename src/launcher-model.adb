@@ -3,12 +3,20 @@ with Ada.Strings.Unbounded;
 package body Launcher.Model is
    use Ada.Strings.Unbounded;
 
+   Icon_Pixel_Size : constant := 48;
+
    procedure Load (M : in out State) is
    begin
       M.Apps     := Applications.Installed;
       M.Query    := Null_Unbounded_String;
       M.Selected := 1;
       M.Offset   := 0;
+
+      --  Resolve and decode each application's icon once, cached parallel to Apps.
+      M.Icons.Clear;
+      for A of M.Apps loop
+         M.Icons.Append (Launcher.Icons.Load (To_String (A.Icon), Icon_Pixel_Size));
+      end loop;
    end Load;
 
    function Results (M : State) return Guikit.Palette.Item_Vectors.Vector is

@@ -1,6 +1,7 @@
 with Guikit.Palette;
 
 with Launcher.Applications;
+with Launcher.Icons;
 
 --  The launcher's state and the pure operations over it: the installed
 --  applications, the search query, the highlighted result and the scroll
@@ -10,6 +11,7 @@ package Launcher.Model is
 
    type State is record
       Apps     : Applications.Application_Vectors.Vector;
+      Icons    : Launcher.Icons.Loaded_Icon_Vectors.Vector;  --  parallel to Apps
       Query    : UString;
       Selected : Natural := 1;  --  1-based index into the current results; 0 = none
       Offset   : Natural := 0;  --  result rows scrolled off the top

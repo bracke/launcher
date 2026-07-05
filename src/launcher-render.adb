@@ -3,8 +3,12 @@ with Ada.Strings.Unbounded;
 with Guikit.Utf8;
 with Guikit.Widgets;
 
+with Launcher.Icons;
+
 package body Launcher.Render is
    use Ada.Strings.Unbounded;
+
+   Icon_Slot : constant Natural := 36;  --  reserved left gutter for the app icon
 
 
    procedure Build_Frame
@@ -17,6 +21,7 @@ package body Launcher.Render is
       Hover_Y     : Integer;
       Rectangles  : out Guikit.Draw.Rectangle_Command_Vectors.Vector;
       Text        : out Guikit.Draw.Text_Command_Vectors.Vector;
+      Icons       : out Guikit.Draw.Icon_Command_Vectors.Vector;
       Rows        : out Guikit.Layout.Palette_Result_Row_Vectors.Vector)
    is
       Layout  : constant Guikit.Layout.Palette_Layout :=
@@ -90,10 +95,34 @@ package body Launcher.Render is
             Hovered : constant Boolean :=
               Hover_X >= Row.X and then Hover_X < Row.X + Row.Width
               and then Hover_Y >= Row.Y and then Hover_Y < Row.Y + Row.Height;
-            Label_X : constant Natural := Row.X + Pad;
+            Gutter  : constant Natural := Pad + Icon_Slot;
+            Label_X : constant Natural := Row.X + Gutter + Pad;
             Label_Y : constant Natural := Row.Y + Row_Pad;
-            Label_W : constant Natural := (if Row.Width > 2 * Pad then Row.Width - 2 * Pad else 0);
+            Label_W : constant Natural :=
+              (if Row.Width > Gutter + 2 * Pad then Row.Width - Gutter - 2 * Pad else 0);
          begin
+            --  App icon in the left gutter (centered), when one was decoded.
+            if Row.Result_Index <= Natural (Ranked.Length)
+              and then Item.Id <= Natural (M.Icons.Length)
+              and then M.Icons.Element (Item.Id).Width > 0
+            then
+               declare
+                  Icon    : constant Launcher.Icons.Loaded_Icon := M.Icons.Element (Item.Id);
+                  Display : constant Natural :=
+                    Natural'Min (Icon_Slot, (if Row.Height > 8 then Row.Height - 8 else Row.Height));
+               begin
+                  Icons.Append
+                    (Guikit.Draw.Icon_Command'
+                       (X                => Row.X + Pad + (Icon_Slot - Display) / 2,
+                        Y                => Row.Y + (if Row.Height > Display then (Row.Height - Display) / 2 else 0),
+                        Size             => Display,
+                        Thumbnail_Width  => Icon.Width,
+                        Thumbnail_Height => Icon.Height,
+                        Thumbnail_Pixels => Icon.Pixels,
+                        others           => <>));
+               end;
+            end if;
+
             Guikit.Widgets.Draw_Palette_Row
               (Rectangles       => Rectangles,
                Text             => Text,

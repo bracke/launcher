@@ -37,7 +37,8 @@ package body Launcher_Suite.Model is
            (Launcher.Applications.Application'
               (Name    => To_Unbounded_String (Name),
                Exec    => To_Unbounded_String (Exec),
-               Comment => To_Unbounded_String (Comment)));
+               Comment => To_Unbounded_String (Comment),
+               Icon    => Null_Unbounded_String));
       end Add;
    begin
       Add ("Firefox", "firefox", "Web Browser");

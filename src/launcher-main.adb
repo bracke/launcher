@@ -160,13 +160,32 @@ procedure Launcher.Main is
 begin
    Launcher.Model.Load (M);
 
-   --  Headless diagnostic: print the discovered applications and exit.
+   --  Headless diagnostic: print the discovered applications (with icon status)
+   --  and exit.
    if Ada.Command_Line.Argument_Count >= 1
      and then Ada.Command_Line.Argument (1) = "--list"
    then
-      for App of M.Apps loop
-         Ada.Text_IO.Put_Line (To_String (App.Name) & "  ::  " & To_String (App.Exec));
-      end loop;
+      declare
+         With_Icon : Natural := 0;
+      begin
+         for I in M.Apps.First_Index .. M.Apps.Last_Index loop
+            declare
+               Icon_W : constant Natural := M.Icons.Element (I).Width;
+               Tag    : constant String :=
+                 (if Icon_W > 0 then "  [icon]" else "  [no icon]");
+            begin
+               if Icon_W > 0 then
+                  With_Icon := With_Icon + 1;
+               end if;
+               Ada.Text_IO.Put_Line
+                 (To_String (M.Apps.Element (I).Name) & "  ::  "
+                  & To_String (M.Apps.Element (I).Exec) & Tag);
+            end;
+         end loop;
+         Ada.Text_IO.Put_Line
+           (Natural'Image (With_Icon) & " of" & Natural'Image (Natural (M.Apps.Length))
+            & " applications have an icon");
+      end;
       return;
    end if;
 
@@ -251,7 +270,7 @@ begin
                Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
                Rows   : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
                No_Tri        : Guikit.Draw.Triangle_Command_Vectors.Vector;
-               No_Icons      : Guikit.Draw.Icon_Command_Vectors.Vector;
+               Icons         : Guikit.Draw.Icon_Command_Vectors.Vector;
                No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
                No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
                Metrics : constant Guikit.Draw.Layout_Metrics :=
@@ -262,7 +281,7 @@ begin
             begin
                Launcher.Render.Build_Frame
                  (M, Ranked, Natural (Window_W), Natural (Window_H), Line_Height,
-                  Handle.Mouse_X, Handle.Mouse_Y, Rects, Texts, Rows);
+                  Handle.Mouse_X, Handle.Mouse_Y, Rects, Texts, Icons, Rows);
 
                if Handle.Pending_Click then
                   Handle.Pending_Click := False;
@@ -289,7 +308,7 @@ begin
                Glyphs := Guikit.Text.Build_Glyphs (Text, Texts, No_Overlay_Tx);
                Batch  :=
                  Guikit.Vulkan.Build_Submission
-                   (Rects, No_Tri, No_Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);
+                   (Rects, No_Tri, Icons, No_Overlay, Metrics, Guikit.Draw.Theme_Dark, Glyphs);
                Ignore_St :=
                  Guikit.Vulkan.Present_Frame (Vulkan, Batch, Natural (Frame_W), Natural (Frame_H));
             end;

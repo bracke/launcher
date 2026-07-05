@@ -94,6 +94,7 @@ package body Launcher.Applications is
       Name     : Unbounded_String;
       Exec     : Unbounded_String;
       Comment  : Unbounded_String;
+      Icon     : Unbounded_String;
       Is_App   : Boolean := False;
       Hidden   : Boolean := False;
    begin
@@ -119,6 +120,8 @@ package body Launcher.Applications is
                      Exec := To_Unbounded_String (Strip_Field_Codes (Val));
                   elsif Key = "Comment" then
                      Comment := To_Unbounded_String (Val);
+                  elsif Key = "Icon" then
+                     Icon := To_Unbounded_String (Val);
                   elsif Key = "Type" then
                      Is_App := Val = "Application";
                   elsif Key = "NoDisplay" or else Key = "Hidden" then
@@ -131,7 +134,7 @@ package body Launcher.Applications is
       Ada.Text_IO.Close (File);
 
       if Is_App and then not Hidden and then Length (Name) > 0 and then Length (Exec) > 0 then
-         App   := (Name => Name, Exec => Exec, Comment => Comment);
+         App   := (Name => Name, Exec => Exec, Comment => Comment, Icon => Icon);
          Found := True;
       end if;
    exception

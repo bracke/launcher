@@ -13,6 +13,7 @@ package Launcher.Applications is
       Name    : UString;
       Exec    : UString;
       Comment : UString;
+      Icon    : UString;  --  the .desktop Icon= value (an icon name or a path)
    end record;
 
    package Application_Vectors is new Ada.Containers.Vectors
