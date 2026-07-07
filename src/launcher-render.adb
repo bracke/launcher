@@ -85,7 +85,7 @@ package body Launcher.Render is
           (Selected       => M.Selected,
            Result_Count   => Natural (Ranked.Length),
            Visible_Rows   =>
-             (if Layout.Row_Height = 0 then 0 else Layout.Results_Height / Layout.Row_Height),
+             Guikit.Layout.Visible_Row_Count (Layout.Results_Height, Layout.Row_Height),
            Current_Offset => M.Offset);
       Rows := Guikit.Layout.Calculate_Palette_Result_Rows (Layout, Enabled, M.Selected, M.Offset);
 
@@ -166,7 +166,7 @@ package body Launcher.Render is
       declare
          Bar_W        : constant Natural := 8;
          Visible_Rows : constant Natural :=
-           (if Layout.Row_Height = 0 then 0 else Layout.Results_Height / Layout.Row_Height);
+           Guikit.Layout.Visible_Row_Count (Layout.Results_Height, Layout.Row_Height);
          Result_Count : constant Natural := Natural (Ranked.Length);
          Max_Scroll   : constant Natural :=
            (if Result_Count > Visible_Rows then Result_Count - Visible_Rows else 0);
