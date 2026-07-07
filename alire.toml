@@ -1,7 +1,7 @@
 name = "launcher"
 description = "Keyboard-driven application launcher built on guikit"
 version = "0.1.0-dev"
-
+website = "https://github.com/bracke/launcher"
 authors = ["Bent Bracke"]
 maintainers = ["Bent Bracke <bent@bracke.dk>"]
 maintainers-logins = ["bracke"]
@@ -9,6 +9,9 @@ licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
 tags = ["launcher", "gui"]
 
 executables = ["launcher"]
+
+[[depends-on]]
+gnat_native = "=15.2.1"
 
 [[depends-on]]
 guikit = "*"

@@ -12,6 +12,9 @@ tags = ["tests"]
 executables = ["launcher_tests"]
 
 [[depends-on]]
+gnat_native = "=15.2.1"
+
+[[depends-on]]
 guikit = "*"
 
 [[pins]]

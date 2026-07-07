@@ -57,6 +57,27 @@ procedure Release_Check is
      Project_Tools.Release_Checks.Create (Root);
    Dev_Manifest : constant String := Root & "/alire.toml";
    Rel_Manifest : constant String := Root & "/alire.release.toml";
+
+   procedure Require_Text (Path : String; Text : String) is
+   begin
+      Project_Tools.Files.Require_Contains
+        (Path,
+         Text,
+         "missing required text in " & Path & ": " & Text,
+         Quiet => False);
+   end Require_Text;
+
+   procedure Require_Alire_GNAT_15 is
+   begin
+      Require_Text (Root & "/alire.toml", "gnat_native = ""=15.2.1""");
+      Require_Text (Root & "/alire.release.toml", "gnat_native = ""=15.2.1""");
+      Require_Text (Root & "/tests/alire.toml", "gnat_native = ""=15.2.1""");
+      Require_Text (Root & "/tools/alire.toml", "gnat_native = ""=15.2.1""");
+      Require_Text (Root & "/alire/alire.lock", "gnat=15.2.1");
+      Require_Text (Root & "/alire/alire.lock", "version = ""15.2.1""");
+      Require_Text (Root & "/tools/alire/alire.lock", "gnat=15.2.1");
+      Require_Text (Root & "/tools/alire/alire.lock", "version = ""15.2.1""");
+   end Require_Alire_GNAT_15;
 begin
    if not Project_Tools.Files.File_Exists (Root & "/launcher.gpr") then
       Put_Line
@@ -71,6 +92,7 @@ begin
    Project_Tools.Release_Checks.Require_File (Checker, "alire.release.toml");
    Project_Tools.Release_Checks.Require_File (Checker, "README.md");
    Project_Tools.Release_Checks.Require_File (Checker, "docs/release-notes.md");
+   Require_Alire_GNAT_15;
 
    --  The release manifest must be publishable: pin-free, named "launcher",
    --  declaring a license, and depending on the formerly-pinned crates by

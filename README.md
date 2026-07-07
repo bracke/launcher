@@ -29,8 +29,22 @@ frame/glyph building (`Launcher.Render`), and the window + main loop
 
 ## Build & run
 
+This repository must be built and validated with Alire GNAT 15. The root, tests,
+tools, and release manifests pin `gnat_native = "=15.2.1"`. Confirm with:
+
+```sh
+alr exec -- gnatls --version
+```
+
+Do not run plain system `gnat*`, `gnatmake`, `gnatls`, `gnatprove`, or
+`gprbuild` in this workspace. Use `alr exec -- ...` for compiler and builder
+commands so PATH cannot select a different GNAT installation.
+
 ```sh
 alr build
+alr test
+alr exec -- gprbuild -P tools/launcher_check.gpr
+tools/bin/release_check
 bin/launcher              # open the launcher window
 bin/launcher --list       # print the discovered applications + icon status, then exit
 bin/launcher --smoke      # render a few frames, verify via framebuffer readback, then exit

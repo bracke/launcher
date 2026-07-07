@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+Use Alire GNAT 15 only. The root, tests, tools, and release manifests pin
+`gnat_native = "=15.2.1"`. Validate with `alr exec -- gnatls --version`.
+Do not run plain system `gnat*`, `gnatmake`, `gnatls`, `gnatprove`, or
+`gprbuild` in this workspace; use `alr exec -- ...` for compiler and builder
+commands.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this is

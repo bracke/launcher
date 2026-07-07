@@ -11,6 +11,9 @@ tags = ["launcher", "gui"]
 
 executables = ["launcher"]
 
+[[depends-on]]
+gnat_native = "=15.2.1"
+
 # Release manifest: published form of alire.toml with NO local path pins.
 # The development alire.toml pins guikit/textrender to sibling checkouts; this
 # file depends on their published crates instead. Keep the two manifests'
