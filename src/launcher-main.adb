@@ -7,9 +7,8 @@ with Glfw.Input.Keys;
 with Glfw.Input.Mouse;
 with Glfw.Windows;
 
+with Guikit.Command_Palette;
 with Guikit.Draw;
-with Guikit.Layout;
-with Guikit.Palette;
 with Guikit.Text;
 with Guikit.Utf8;
 with Guikit.Vulkan;
@@ -17,7 +16,6 @@ with Guikit.Vulkan;
 with Launcher.Applications;
 with Launcher.Fonts;
 with Launcher.Model;
-with Launcher.Render;
 
 procedure Launcher.Main is
    use Ada.Strings.Unbounded;
@@ -154,23 +152,22 @@ procedure Launcher.Main is
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
    Text         : Guikit.Text.Renderer;
    M            : Launcher.Model.State;
+   Palette      : Guikit.Command_Palette.Palette;
    Ignore_St    : Guikit.Vulkan.Vulkan_Status;
    Ignore_Ts    : Guikit.Draw.Text_Render_Status;
    pragma Unreferenced (Ignore_St, Ignore_Ts);
 
    --  Render one frame: bring the swapchain up, build and submit the palette,
-   --  and present. Returns the laid-out rows for click hit-testing.
+   --  and present. The component owns the row layout (for click hit-testing).
    procedure Draw_Frame
-     (Win  : Window_Access;
-      Vk   : in out Guikit.Vulkan.Vulkan_Renderer;
-      Txt  : in out Guikit.Text.Renderer;
-      Mdl  : in out Launcher.Model.State;
-      Rows : out Guikit.Layout.Palette_Result_Row_Vectors.Vector)
+     (Win : Window_Access;
+      Vk  : in out Guikit.Vulkan.Vulkan_Renderer;
+      Txt : in out Guikit.Text.Renderer;
+      Pal : in out Guikit.Command_Palette.Palette)
    is
       Window_W, Window_H : Glfw.Size;
       Frame_W,  Frame_H  : Glfw.Size;
    begin
-      Rows := Guikit.Layout.Palette_Result_Row_Vectors.Empty_Vector;
       Glfw.Windows.Get_Size (As_Window (Win), Window_W, Window_H);
       Glfw.Windows.Get_Framebuffer_Size (As_Window (Win), Frame_W, Frame_H);
       Guikit.Vulkan.Ensure_Ready (Vk, As_Window (Win), Natural (Frame_W), Natural (Frame_H));
@@ -179,10 +176,10 @@ procedure Launcher.Main is
       end if;
 
       declare
-         Ranked : constant Guikit.Palette.Item_Vectors.Vector := Launcher.Model.Results (Mdl);
          Rects  : Guikit.Draw.Rectangle_Command_Vectors.Vector;
          Texts  : Guikit.Draw.Text_Command_Vectors.Vector;
          Icons  : Guikit.Draw.Icon_Command_Vectors.Vector;
+         Nodes  : Guikit.Draw.Accessibility_Node_Vectors.Vector;
          No_Tri        : Guikit.Draw.Triangle_Command_Vectors.Vector;
          No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
          No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
@@ -191,9 +188,21 @@ procedure Launcher.Main is
          Glyphs  : Guikit.Draw.Text_Render_Result;
          Batch   : Guikit.Vulkan.Submission_Batch;
       begin
-         Launcher.Render.Build_Frame
-           (Mdl, Ranked, Natural (Window_W), Natural (Window_H), Line_Height,
-            Win.Mouse_X, Win.Mouse_Y, Rects, Texts, Icons, Rows);
+         Guikit.Command_Palette.Build_Frame
+           (P             => Pal,
+            Region_X      => 0,
+            Region_Y      => 0,
+            Region_Width  => Natural (Window_W),
+            Region_Height => Natural (Window_H),
+            Clip_Width    => Natural (Window_W),
+            Clip_Height   => Natural (Window_H),
+            Focused       => True,
+            Hover_X       => Win.Mouse_X,
+            Hover_Y       => Win.Mouse_Y,
+            Rectangles    => Rects,
+            Text          => Texts,
+            Icons         => Icons,
+            Accessibility => Nodes);
          Glyphs := Guikit.Text.Build_Glyphs (Txt, Texts, No_Overlay_Tx);
          Batch  :=
            Guikit.Vulkan.Build_Submission
@@ -210,18 +219,14 @@ procedure Launcher.Main is
      (Win : Window_Access;
       Vk  : in out Guikit.Vulkan.Vulkan_Renderer;
       Txt : in out Guikit.Text.Renderer;
-      Mdl : in out Launcher.Model.State)
+      Pal : in out Guikit.Command_Palette.Palette)
       return Boolean
    is
-      Rows : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
       Frame_W, Frame_H : Glfw.Size;
    begin
-      Mdl.Query    := Null_Unbounded_String;
-      Mdl.Selected := 1;
-      Mdl.Offset   := 0;
       Guikit.Vulkan.Set_Readback_Enabled (Vk, True);
       for I in 1 .. 6 loop
-         Draw_Frame (Win, Vk, Txt, Mdl, Rows);
+         Draw_Frame (Win, Vk, Txt, Pal);
       end loop;
 
       Glfw.Windows.Get_Framebuffer_Size (As_Window (Win), Frame_W, Frame_H);
@@ -306,6 +311,18 @@ begin
            Atlas_Height => 1024);
    end;
 
+   --  Configure the palette and load the application commands.
+   Guikit.Command_Palette.Set_Configuration
+     (Palette,
+      (Line_Height    => Line_Height,
+       Show_Icons     => True,
+       Show_Shortcuts => False,
+       Overlay        => False,
+       Wrap_Selection => False,
+       Placeholder    => To_Unbounded_String ("Type to search applications..."),
+       Empty_State    => To_Unbounded_String ("No matching applications")));
+   Guikit.Command_Palette.Set_Commands (Palette, Launcher.Model.Commands (M));
+
    --  Create the window.
    Glfw.Init;
    Guikit.Vulkan.Configure_Window_Hints;
@@ -322,7 +339,7 @@ begin
      and then Ada.Command_Line.Argument (1) = "--smoke"
    then
       declare
-         Passed : constant Boolean := Smoke_Passes (Handle, Vulkan, Text, M);
+         Passed : constant Boolean := Smoke_Passes (Handle, Vulkan, Text, Palette);
       begin
          Ada.Text_IO.Put_Line ("launcher smoke: " & (if Passed then "PASS" else "FAIL"));
          if not Passed then
@@ -340,58 +357,53 @@ begin
       Guikit.Vulkan.Poll_Events;
 
       if Length (Handle.Pending_Text) > 0 then
-         Launcher.Model.Insert (M, To_String (Handle.Pending_Text));
+         Guikit.Command_Palette.Insert (Palette, To_String (Handle.Pending_Text));
          Handle.Pending_Text := Null_Unbounded_String;
       end if;
       for I in 1 .. Handle.Pending_Backspace loop
-         Launcher.Model.Backspace (M);
+         Guikit.Command_Palette.Backspace (Palette);
       end loop;
       Handle.Pending_Backspace := 0;
       for I in 1 .. Handle.Pending_Up loop
-         Launcher.Model.Move_Selection (M, -1);
+         Guikit.Command_Palette.Move_Selection (Palette, -1);
       end loop;
       Handle.Pending_Up := 0;
       for I in 1 .. Handle.Pending_Down loop
-         Launcher.Model.Move_Selection (M, 1);
+         Guikit.Command_Palette.Move_Selection (Palette, 1);
       end loop;
       Handle.Pending_Down := 0;
       if Handle.Pending_Home then
-         Launcher.Model.Select_First (M);
+         Guikit.Command_Palette.Select_First (Palette);
          Handle.Pending_Home := False;
       end if;
       if Handle.Pending_End then
-         Launcher.Model.Select_Last (M);
+         Guikit.Command_Palette.Select_Last (Palette);
          Handle.Pending_End := False;
       end if;
       --  Wheel: scroll up moves the selection up, down moves it down.
       if Handle.Pending_Scroll /= 0 then
-         Launcher.Model.Move_Selection (M, -Handle.Pending_Scroll);
+         Guikit.Command_Palette.Move_Selection (Palette, -Handle.Pending_Scroll);
          Handle.Pending_Scroll := 0;
       end if;
       exit when Handle.Pending_Escape;
 
       declare
-         Rows : Guikit.Layout.Palette_Result_Row_Vectors.Vector;
-         App  : Launcher.Applications.Application;
+         App : Launcher.Applications.Application;
       begin
-         Draw_Frame (Handle, Vulkan, Text, M, Rows);
+         Draw_Frame (Handle, Vulkan, Text, Palette);
 
          if Handle.Pending_Click then
             Handle.Pending_Click := False;
-            declare
-               Hit : constant Natural :=
-                 Guikit.Layout.Palette_Result_At (Rows, Handle.Mouse_X, Handle.Mouse_Y);
-            begin
-               if Hit > 0 then
-                  M.Selected := Hit;
-                  Handle.Pending_Enter := True;
-               end if;
-            end;
+            if Guikit.Command_Palette.Click (Palette, Handle.Mouse_X, Handle.Mouse_Y) then
+               Handle.Pending_Enter := True;
+            end if;
          end if;
 
          if Handle.Pending_Enter then
             Handle.Pending_Enter := False;
-            if Launcher.Model.Selected_Application (M, App) then
+            if Launcher.Model.Application_For
+                 (M, Guikit.Command_Palette.Selected_Id (Palette), App)
+            then
                Launcher.Model.Record_Launch (M, App);
                if Launcher.Applications.Launch (App) then
                   exit;

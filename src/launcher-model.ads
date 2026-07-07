@@ -1,62 +1,47 @@
-with Guikit.Palette;
+with Guikit.Command_Palette;
 
 with Launcher.Applications;
 with Launcher.Icons;
 with Launcher.Usage;
 
---  The launcher's state and the pure operations over it: the installed
---  applications, the search query, the highlighted result and the scroll
---  offset. Filtering/ranking is delegated to Guikit.Palette; the model just
---  turns the app list into palette items and maps a result back to an app.
+--  The launcher's data layer: the installed applications (ordered most-used
+--  first), their decoded icons, and the usage store. The query/selection/scroll
+--  state and all rendering now live in Guikit.Command_Palette; this package just
+--  supplies the command list and maps a chosen command back to an application.
 package Launcher.Model is
 
    type State is record
-      Apps     : Applications.Application_Vectors.Vector;
-      Icons    : Launcher.Icons.Loaded_Icon_Vectors.Vector;  --  parallel to Apps
-      Usage    : Launcher.Usage.Store;
-      Query    : UString;
-      Selected : Natural := 1;  --  1-based index into the current results; 0 = none
-      Offset   : Natural := 0;  --  result rows scrolled off the top
+      Apps  : Applications.Application_Vectors.Vector;
+      Icons : Launcher.Icons.Loaded_Icon_Vectors.Vector;  --  parallel to Apps
+      Usage : Launcher.Usage.Store;
    end record;
 
-   --  Populate the state with the installed applications.
+   --  Scan the installed applications, order them by usage (then name), and
+   --  decode each icon once.
    procedure Load (M : in out State);
 
-   --  The applications matching the current query, ranked best-first (an empty
-   --  query lists them all in name order). Each item's Id is the one-based index
-   --  of the application in M.Apps.
+   --  The palette commands for the loaded applications. Each command's Id is the
+   --  one-based index of its application in M.Apps, so a chosen command maps back
+   --  through Application_For.
    --
    --  @param M Launcher state.
-   --  @return Ranked palette items for the current query.
-   function Results (M : State) return Guikit.Palette.Item_Vectors.Vector;
+   --  @return The commands (label = name, description = comment, icon decoded).
+   function Commands (M : State) return Guikit.Command_Palette.Command_Vectors.Vector;
 
-   --  Append typed text to the query and reset the selection to the top.
-   procedure Insert (M : in out State; Text : String);
-
-   --  Delete the last query character (UTF-8 aware) and reset the selection.
-   procedure Backspace (M : in out State);
-
-   --  Move the highlighted result by Delta_Rows, clamped to the result range.
-   procedure Move_Selection (M : in out State; Delta_Rows : Integer);
-
-   --  Highlight the first result (or clear the selection when there are none).
-   procedure Select_First (M : in out State);
-
-   --  Highlight the last result (or clear the selection when there are none).
-   procedure Select_Last (M : in out State);
-
-   --  Record that an application was launched (increments its usage count and
-   --  persists it), so it ranks higher on the next run.
-   procedure Record_Launch (M : in out State; App : Applications.Application);
-
-   --  The application the current selection points at.
+   --  The application a chosen command Id refers to.
    --
    --  @param M Launcher state.
-   --  @param App The selected application (valid only when the result is True).
-   --  @return True when a selectable result is highlighted.
-   function Selected_Application
+   --  @param Id A command Id from Guikit.Command_Palette.Selected_Id.
+   --  @param App The application (valid only when the result is True).
+   --  @return True when Id refers to a loaded application.
+   function Application_For
      (M   : State;
+      Id  : Natural;
       App : out Applications.Application)
       return Boolean;
+
+   --  Record that an application was launched (increments + persists its usage
+   --  count), so it ranks higher on the next run.
+   procedure Record_Launch (M : in out State; App : Applications.Application);
 
 end Launcher.Model;
