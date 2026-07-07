@@ -161,6 +161,41 @@ package body Launcher.Render is
          end;
       end loop;
 
+      --  Scrollbar down the right of the results when they overflow the visible
+      --  rows, using the shared guikit thumb geometry + widget.
+      declare
+         Bar_W        : constant Natural := 8;
+         Visible_Rows : constant Natural :=
+           (if Layout.Row_Height = 0 then 0 else Layout.Results_Height / Layout.Row_Height);
+         Result_Count : constant Natural := Natural (Ranked.Length);
+         Max_Scroll   : constant Natural :=
+           (if Result_Count > Visible_Rows then Result_Count - Visible_Rows else 0);
+         Thumb        : constant Guikit.Layout.Scrollbar_Thumb :=
+           Guikit.Layout.Calculate_Scrollbar_Thumb
+             (Track_Length    => Layout.Results_Height,
+              Visible_Amount  => Visible_Rows,
+              Total_Amount    => Result_Count,
+              Scroll_Position => M.Offset,
+              Max_Scroll      => Max_Scroll,
+              Min_Length      => Layout.Row_Height);
+      begin
+         if Thumb.Length > 0 and then Layout.Results_Width > Bar_W then
+            Guikit.Widgets.Draw_Scrollbar
+              (Rectangles   => Rectangles,
+               Clip_Width   => Width,
+               Clip_Height  => Height,
+               Track_X      => Layout.Results_X + Layout.Results_Width - Bar_W,
+               Track_Y      => Layout.Results_Y,
+               Track_Width  => Bar_W,
+               Track_Height => Layout.Results_Height,
+               Thumb_Y      => Layout.Results_Y + Thumb.Offset,
+               Thumb_Height => Thumb.Length,
+               Track_Color  => Guikit.Draw.Input_Color,
+               Thumb_Color  => Guikit.Draw.Border_Color,
+               Grip_Color   => Guikit.Draw.Muted_Text_Color);
+         end if;
+      end;
+
       --  Empty state: a query that matches nothing shows a muted message rather
       --  than a blank void.
       if Ranked.Is_Empty then

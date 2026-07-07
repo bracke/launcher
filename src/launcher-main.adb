@@ -238,14 +238,22 @@ procedure Launcher.Main is
          Icon_Ink : constant Float :=
            Guikit.Vulkan.Readback_Region_Ink_Fraction (Vk, 2, FH / 4, 48, FH / 2);
          Icons_Ok : constant Boolean := Icon_Ink > 0.001;
+         --  Right edge over the results: ink means the scrollbar (all apps
+         --  overflow the visible rows, so a thumb must be present).
+         Scroll_Ink : constant Float :=
+           Guikit.Vulkan.Readback_Region_Ink_Fraction
+             (Vk, (if FW > 14 then FW - 14 else 0), FH / 4, 14, FH / 2);
+         Scroll_Ok  : constant Boolean := Scroll_Ink > 0.0005;
       begin
          Ada.Text_IO.Put_Line
            ("launcher smoke: overall=" & Boolean'Image (Overall)
             & " search=" & Boolean'Image (Search)
             & " results=" & Boolean'Image (Results)
             & " icons=" & Boolean'Image (Icons_Ok)
-            & " (gutter ink" & Float'Image (Icon_Ink) & ")");
-         return Overall and then Search and then Results and then Icons_Ok;
+            & " scrollbar=" & Boolean'Image (Scroll_Ok)
+            & " (gutter" & Float'Image (Icon_Ink)
+            & " scroll" & Float'Image (Scroll_Ink) & ")");
+         return Overall and then Search and then Results and then Icons_Ok and then Scroll_Ok;
       end;
    end Smoke_Passes;
 
