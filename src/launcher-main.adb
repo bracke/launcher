@@ -319,7 +319,6 @@ begin
        Show_Shortcuts => False,
        Overlay        => False,
        Wrap_Selection => False,
-       Pre_Filtered   => False,
        Placeholder    => To_Unbounded_String ("Type to search applications..."),
        Empty_State    => To_Unbounded_String ("No matching applications")));
    Guikit.Command_Palette.Set_Commands (Palette, Launcher.Model.Commands (M));
