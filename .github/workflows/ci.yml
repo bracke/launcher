@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Linux build and tests
+    runs-on: ubuntu-latest
+    env:
+      ALIRE_NONINTERACTIVE: "true"
+    steps:
+      - name: Check out launcher
+        uses: actions/checkout@v4
+        with:
+          path: launcher
+
+      # launcher pins guikit and textrender as path dependencies, and guikit in
+      # turn pins textrender, so both must exist as sibling checkouts.
+      - name: Check out guikit sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/guikit
+          path: guikit
+
+      - name: Check out textrender sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/textrender
+          path: textrender
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          # openglada_glfw's Linker_Options require the X11 libraries below; without
+          # them everything compiles and the link then fails on -lXxf86vm.
+          sudo apt-get install -y --no-install-recommends \
+            libvulkan-dev \
+            mesa-vulkan-drivers \
+            fonts-dejavu-core \
+            libxcursor-dev \
+            libxxf86vm-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev
+          sudo apt-get install -y libaunit-dev \
+            || sudo apt-get install -y libaunit22-dev \
+            || sudo apt-get install -y libaunit24-dev
+
+      - name: Set up Alire
+        # Pin the toolchain the manifests require. setup-alire@v5 defaults to alr
+        # 2.1.0, whose index carries gnat_native 15.2.1; v4 pins alr 2.0.2, whose
+        # older index cannot resolve it.
+        uses: alire-project/setup-alire@v5
+        with:
+          toolchain: gnat_native=15.2.1 gprbuild
+
+      - name: Build the application
+        working-directory: launcher
+        run: alr --non-interactive build
+
+      - name: Build and run the test suite
+        working-directory: launcher/tests
+        run: |
+          alr --non-interactive build
+          ./bin/launcher_tests
