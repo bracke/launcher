@@ -320,7 +320,8 @@ begin
        Overlay        => False,
        Wrap_Selection => False,
        Placeholder    => To_Unbounded_String ("Type to search applications..."),
-       Empty_State    => To_Unbounded_String ("No matching applications")));
+       Empty_State    => To_Unbounded_String ("No matching applications"),
+       Title          => Null_Unbounded_String));
    Guikit.Command_Palette.Set_Commands (Palette, Launcher.Model.Commands (M));
 
    --  Create the window.
