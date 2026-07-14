@@ -3,7 +3,16 @@ project Launcher_Tests is
 
    --  Compile the launcher's own sources alongside the tests (excluding the GUI
    --  main), so the suite can exercise the domain packages directly.
-   for Source_Dirs use ("tests/src/", "../src/", "config/");
+   case Launcher_Tests_Config.Alire_Host_OS is
+      when "windows" =>
+         for Source_Dirs use ("tests/src/", "../src/", "config/", "../src/platform/windows");
+      when "macos" =>
+         for Source_Dirs use ("tests/src/", "../src/", "config/", "../src/platform/macos");
+      when "linux" =>
+         for Source_Dirs use ("tests/src/", "../src/", "config/", "../src/platform/linux");
+      when others =>
+         for Source_Dirs use ("tests/src/", "../src/", "config/", "../src/platform/unsupported");
+   end case;
    for Excluded_Source_Files use ("launcher-main.adb");
    for Object_Dir use "obj/" & Launcher_Tests_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
@@ -25,7 +34,7 @@ project Launcher_Tests is
             --  The Vulkan loader is vulkan-1.dll on Windows, so the library is
             --  vulkan-1, not vulkan. Asking for -lvulkan there does not link at all.
             for Default_Switches ("Ada") use
-              ("-lvulkan-1", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0");
+              ("-lvulkan-1", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0", "-lshell32");
          when others =>
             for Default_Switches ("Ada") use
               ("-lvulkan", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0");

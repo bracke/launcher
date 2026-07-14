@@ -1,0 +1,70 @@
+V "GNAT Lib v15"
+A -gnatc
+A -gnat2022
+A -gnatW8
+A -gnaty3
+A -gnatyM120
+A -gnatwa
+A -mtune=generic
+A -march=x86-64
+P NO
+
+RN
+RV NO_NESTED_FINALIZATION
+RV NO_IMPLEMENTATION_PRAGMAS
+RV NO_ELABORATION_CODE
+
+U launcher.applications.platform%b  launcher-applications-platform.adb  c7f9efa2 OO PK
+Z ada.strings.text_buffers%s  a-sttebu.adb	a-sttebu.ali
+W launcher.applications%s  launcher-applications.adb  launcher-applications.ali
+
+U launcher.applications.platform%s  launcher-applications-platform.ads  1624d317 EE OO PK
+W launcher.applications%s  launcher-applications.adb  launcher-applications.ali
+
+D ada.ads		20250808065140 76789da1 ada%s
+D a-charac.ads		20250808065140 2d3ec45b ada.characters%s
+D a-chlat1.ads		20250808065140 e0d72e76 ada.characters.latin_1%s
+D a-contai.ads		20250808065140 61e5e089 ada.containers%s
+D a-conhel.ads		20250808065140 46fe1ce3 ada.containers.helpers%s
+D a-convec.ads		20250808065140 91fb49f3 ada.containers.vectors%s
+D a-finali.ads		20250808065140 bf4f806b ada.finalization%s
+D a-iteint.ads		20250808065140 49a8bee2 ada.iterator_interfaces%s
+D a-stream.ads		20250808065140 17477cbd ada.streams%s
+D a-string.ads		20250808065140 90ac6797 ada.strings%s
+D a-strmap.ads		20250808065140 1f91ebb6 ada.strings.maps%s
+D a-strsea.ads		20250808065140 18c3c634 ada.strings.search%s
+D a-sttebu.ads		20250808065140 f1ad67a2 ada.strings.text_buffers%s
+D a-strunb.ads		20250808065140 b10770ab ada.strings.unbounded%s
+D a-stuten.ads		20250808065140 c6ced0ae ada.strings.utf_encoding%s
+D a-unccon.ads		20250808065140 0e9b276f ada.unchecked_conversion%s
+D interfac.ads		20250808065140 9111f9c1 interfaces%s
+D launcher.ads		20260705081812 0edfafd0 launcher%s
+D launcher-applications.ads  20260705104258 9899e767 launcher.applications%s
+D launcher-applications-platform.ads  20260714163520 8ebd3470 launcher.applications.platform%s
+D launcher-applications-platform.adb  20260714163530 4944dbd2 launcher.applications.platform%b
+D system.ads		20250808065140 14286b0f system%s
+D s-atocou.ads		20250808065140 dc18efc3 system.atomic_counters%s
+D s-finroo.ads		20250808065140 0a7c3ed4 system.finalization_root%s
+D s-unstyp.ads		20250808065140 fa2a7f59 system.unsigned_types%s
+G a e
+G c Z s b [installed_native launcher__applications__platform 14 13 none]
+G c Z s b [launch_native launcher__applications__platform 26 13 none]
+X 6 a-convec.ads
+91R9*Vector<7|43R9> 20|14r57[19|19] 21|5r57[19|19] 6r34[19|19]
+X 8 a-iteint.ads
+24h9 Forward_Iterator
+32h9 Reversible_Iterator<24R9[6|119]>
+X 18 launcher.ads
+12K9*Launcher 14e13 20|10r9 28r5 21|1r14 18r5
+X 19 launcher-applications.ads
+10K18*Applications 18|12k9 19|45e26 20|10r18 28r14 21|1r23 18r14
+12R9*Application 17e14 20|26r34 21|12r34
+19K12*Application_Vectors[6|74] 20|14r37 21|5r37 6r14
+X 20 launcher-applications-platform.ads
+10K31*Platform 19|10k18 20|28l27 28e35 21|1b36 18l27 18t35
+14V13*Installed_Native{6|91R9[19|19]} 21|5b13 9l8 9t24
+26V13*Launch_Native{boolean} 26>28 21|12b13 16l8 16t21
+26r28 App{19|12R9} 21|12b28 13r28
+X 21 launcher-applications-platform.adb
+6r7 None{6|91R9[19|19]} 8r14
+

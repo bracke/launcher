@@ -1,7 +1,16 @@
 with "config/launcher_config.gpr";
 project Launcher is
 
-   for Source_Dirs use ("src/", "config/");
+   case Launcher_Config.Alire_Host_OS is
+      when "windows" =>
+         for Source_Dirs use ("src/", "config/", "src/platform/windows");
+      when "macos" =>
+         for Source_Dirs use ("src/", "config/", "src/platform/macos");
+      when "linux" =>
+         for Source_Dirs use ("src/", "config/", "src/platform/linux");
+      when others =>
+         for Source_Dirs use ("src/", "config/", "src/platform/unsupported");
+   end case;
    for Object_Dir use "obj/" & Launcher_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
@@ -22,7 +31,9 @@ project Launcher is
             --  The Vulkan loader is vulkan-1.dll on Windows, so the library is
             --  vulkan-1, not vulkan. Asking for -lvulkan there does not link at all.
             for Default_Switches ("Ada") use
-              ("-lvulkan-1", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0");
+              ("-lvulkan-1", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0",
+               --  ShellExecuteW, which starts a Start Menu shortcut.
+               "-lshell32");
          when others =>
             for Default_Switches ("Ada") use
               ("-lvulkan", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0");

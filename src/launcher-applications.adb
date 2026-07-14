@@ -9,6 +9,8 @@ with Ada.Text_IO;
 
 with GNAT.OS_Lib;
 
+with Launcher.Applications.Platform;
+
 package body Launcher.Applications is
    use Ada.Strings.Unbounded;
 
@@ -205,6 +207,21 @@ package body Launcher.Applications is
          Scan_Dir (Dirs (First .. Dirs'Last), Seen, Apps);
       end if;
 
+      --  Whatever the host records natively -- the Start Menu, the .app bundles --
+      --  joins what the XDG scan found. On Linux that is nothing, because the XDG scan
+      --  IS the native answer there; on Windows and macOS it is everything, because
+      --  the XDG scan finds nothing at all.
+      for App of Launcher.Applications.Platform.Installed_Native loop
+         declare
+            Key : constant String := To_String (App.Name);
+         begin
+            if not Seen.Contains (Key) then
+               Seen.Insert (Key);
+               Apps.Append (App);
+            end if;
+         end;
+      end loop;
+
       Sorting.Sort (Apps);
       return Apps;
    end Installed;
@@ -251,7 +268,18 @@ package body Launcher.Applications is
 
       Pid : Process_Id;
    begin
-      if Command = "" or else Shell = "" then
+      if Command = "" then
+         return False;
+      end if;
+
+      --  Windows starts a Start Menu shortcut through the shell API, not by running a
+      --  command line -- see Launcher.Applications.Platform. Everywhere else this is
+      --  False and the Exec goes to the shell, as it always has.
+      if Launcher.Applications.Platform.Launch_Native (App) then
+         return True;
+      end if;
+
+      if Shell = "" then
          return False;
       end if;
 
