@@ -1,5 +1,11 @@
 name: ci
 
+# Builds launcher and runs its AUnit suite on Linux, macOS and Windows.
+#
+# It was Linux-only, and that hid the fact that the binaries asked for "-lvulkan" on
+# every platform while the Vulkan loader on Windows is vulkan-1.dll -- launcher could
+# not have been built there at all, and nothing said so.
+
 on:
   push:
   pull_request:
@@ -7,10 +13,18 @@ on:
 
 jobs:
   build-and-test:
-    name: Linux build and tests
-    runs-on: ubuntu-latest
+    name: build-and-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       ALIRE_NONINTERACTIVE: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        # An x86_64 macOS image is required: gnat_native=15.2.1 ships no
+        # aarch64-darwin binary, so macos-latest (arm64) cannot resolve the pin.
+        # macos-15-intel is the last x86_64 image Actions will offer.
+        os: [ubuntu-latest, macos-15-intel, windows-latest]
     steps:
       - name: Check out launcher
         uses: actions/checkout@v4
@@ -31,13 +45,16 @@ jobs:
           repository: ${{ github.repository_owner }}/textrender
           path: textrender
 
-      - name: Install system libraries
+      - name: Install system libraries (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           # openglada_glfw's Linker_Options require the X11 libraries below; without
           # them everything compiles and the link then fails on -lXxf86vm.
           sudo apt-get install -y --no-install-recommends \
             libvulkan-dev \
+            libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev \
             mesa-vulkan-drivers \
             fonts-dejavu-core \
             libxcursor-dev \
@@ -49,6 +66,77 @@ jobs:
             || sudo apt-get install -y libaunit22-dev \
             || sudo apt-get install -y libaunit24-dev
 
+      - name: Install system libraries (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          # MoltenVK provides the Vulkan loader/ICD on macOS; gdk-pixbuf pulls in
+          # glib, which the test binary's linker switches name.
+          brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf
+
+          # Homebrew on the x86_64 runner installs under /usr/local, which is not on
+          # the linker's default search path.
+          echo "LIBRARY_PATH=$(brew --prefix)/lib" >> "$GITHUB_ENV"
+
+      - name: Install system libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # Alire's gnat_native is a mingw-w64 toolchain, so its `ld` needs mingw
+          # import libraries (libvulkan-1.dll.a). The chocolatey vulkan-sdk ships MSVC
+          # .lib files, which that linker cannot use -- take every library from the
+          # MSYS2 installation preinstalled on the runner instead.
+          pacman() { /c/msys64/usr/bin/pacman "$@"; }
+
+          # The runner's MSYS2 keyring goes stale, and then the database refuses to
+          # sync at all: "signature ... is invalid". Refresh it first, and fall back
+          # to an unsigned sync if the signed one still will not go -- this is a
+          # throwaway CI image installing four well-known libraries, not a machine
+          # whose supply chain we are defending.
+          pacman-key() { /c/msys64/usr/bin/pacman-key "$@"; }
+          pacman-key --init || true
+          pacman-key --populate msys2 || true
+
+          packages="mingw-w64-x86_64-vulkan-loader
+                    mingw-w64-x86_64-glib2
+                    mingw-w64-x86_64-gdk-pixbuf2
+                    mingw-w64-x86_64-glfw"
+
+          # The mirrors stall often enough to matter -- a sync dies on "less than 1
+          # bytes/sec" rather than on anything we did -- so give each sync room to be
+          # slow, and retry it before concluding anything is actually wrong.
+          sync() {
+            pacman -Sy --noconfirm --needed --disable-download-timeout "$@" $packages
+          }
+
+          synced=""
+          for attempt in 1 2 3; do
+            if sync; then synced=yes; break; fi
+            echo "::warning::pacman sync attempt ${attempt} failed"
+            sleep 15
+          done
+
+          if [ -z "$synced" ]; then
+            echo "::warning::signed pacman sync failed; retrying without signature checks"
+            # This step runs in Git Bash, whose /tmp is NOT the /tmp of the MSYS2
+            # installation that owns this pacman -- writing the config to "/tmp" puts
+            # it somewhere pacman would never look. Hand both a path they agree on.
+            sed 's/^SigLevel.*/SigLevel = Never/' /c/msys64/etc/pacman.conf \
+              > /c/msys64/tmp/pacman-nosig.conf
+            for attempt in 1 2 3; do
+              if sync --config C:/msys64/tmp/pacman-nosig.conf; then synced=yes; break; fi
+              echo "::warning::unsigned pacman sync attempt ${attempt} failed"
+              sleep 15
+            done
+          fi
+
+          [ -n "$synced" ] || { echo "::error::could not install the MSYS2 packages"; exit 1; }
+
+          # ld resolves -l<name> through LIBRARY_PATH; the DLLs must also be on PATH
+          # for the test binary to start.
+          echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> "$GITHUB_ENV"
+          echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
+
       - name: Set up Alire
         # Pin the toolchain the manifests require. setup-alire@v5 defaults to alr
         # 2.1.0, whose index carries gnat_native 15.2.1; v4 pins alr 2.0.2, whose
@@ -58,11 +146,27 @@ jobs:
           toolchain: gnat_native=15.2.1 gprbuild
 
       - name: Build the application
+        shell: bash
         working-directory: launcher
         run: alr --non-interactive build
 
       - name: Build and run the test suite
+        shell: bash
         working-directory: launcher/tests
         run: |
           alr --non-interactive build
-          ./bin/launcher_tests
+          # The binary is launcher_tests.exe on Windows, and bash will not find it
+          # under the Unix name.
+          if [ -f ./bin/launcher_tests.exe ]; then
+            # A missing DLL makes Windows refuse to start the process, and bash
+            # reports that as a plain "not found" (exit 127), with no hint as to
+            # which library is absent. Name any unresolved import.
+            export PATH="/c/msys64/mingw64/bin:$PATH"
+            if ldd ./bin/launcher_tests.exe | grep -i 'not found'; then
+              echo "::error::the test binary has unresolved DLL imports (listed above)"
+              exit 1
+            fi
+            ./bin/launcher_tests.exe
+          else
+            ./bin/launcher_tests
+          fi

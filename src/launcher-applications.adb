@@ -209,18 +209,57 @@ package body Launcher.Applications is
       return Apps;
    end Installed;
 
+   --  An Exec is a command line, not a program and a list of arguments, so it has to
+   --  go through a shell -- but not always /bin/sh, which is what was named here and
+   --  which Windows does not have.
+   --
+   --  COMSPEC is how Windows says which shell it has. "/S /C" is the reliable way in:
+   --  cmd strips the first and last quote of everything after /S and runs the rest
+   --  verbatim, and the outer quotes are exactly what the C runtime adds when it
+   --  rebuilds the command line from this vector. Without /S, cmd applies a rule of
+   --  its own and cuts through the quoting.
+   function Shell_Executable return String is
+      Comspec : constant String := Env ("COMSPEC", "");
+      Shell   : constant String := Env ("SHELL", "");
+   begin
+      if Comspec /= "" then
+         return Comspec;
+      elsif Shell /= "" then
+         return Shell;
+      else
+         return "/bin/sh";
+      end if;
+   end Shell_Executable;
+
    function Launch (App : Application) return Boolean is
       use GNAT.OS_Lib;
       Command : aliased String := To_String (App.Exec);
+      Shell   : constant String := Shell_Executable;
+      Uses_Cmd : constant Boolean := Env ("COMSPEC", "") /= "";
+
+      --  cmd wants /S and /C as separate arguments; sh wants a single -c.
+      Slash_S : aliased String := "/S";
+      Slash_C : aliased String := "/C";
       Dash_C  : aliased String := "-c";
-      Args    : constant Argument_List :=
-        (1 => Dash_C'Unchecked_Access, 2 => Command'Unchecked_Access);
-      Pid     : Process_Id;
+
+      Cmd_Args : constant Argument_List :=
+        [1 => Slash_S'Unchecked_Access,
+         2 => Slash_C'Unchecked_Access,
+         3 => Command'Unchecked_Access];
+      Sh_Args  : constant Argument_List :=
+        [1 => Dash_C'Unchecked_Access, 2 => Command'Unchecked_Access];
+
+      Pid : Process_Id;
    begin
-      if Command = "" then
+      if Command = "" or else Shell = "" then
          return False;
       end if;
-      Pid := Non_Blocking_Spawn ("/bin/sh", Args);
+
+      Pid :=
+        (if Uses_Cmd
+         then Non_Blocking_Spawn (Shell, Cmd_Args)
+         else Non_Blocking_Spawn (Shell, Sh_Args));
+
       return Pid /= Invalid_Pid;
    exception
       when others =>
