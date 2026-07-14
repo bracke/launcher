@@ -45,6 +45,14 @@ jobs:
           repository: ${{ github.repository_owner }}/textrender
           path: textrender
 
+      # launcher asks hostkit what the host does -- which shell, how it quotes, how it
+      # starts a shortcut -- so it is a path dependency like the others.
+      - name: Check out hostkit sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/hostkit
+          path: hostkit
+
       - name: Install system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
