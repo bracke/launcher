@@ -1,16 +1,11 @@
 with Ada.Directories;
 with Ada.Environment_Variables;
 with Ada.Strings.Unbounded;
-with Ada.Strings.UTF_Encoding.Wide_Strings;
 
-with Interfaces.C;
-
-with System.Storage_Elements;
-with System;
+with Hostkit.Process;
 
 package body Launcher.Applications.Platform is
    use Ada.Strings.Unbounded;
-   use type System.Storage_Elements.Integer_Address;
 
    Suffix : constant String := ".lnk";
 
@@ -21,23 +16,6 @@ package body Launcher.Applications.Platform is
      [new String'("APPDATA"), new String'("ProgramData")];
 
    Start_Menu : constant String := "\Microsoft\Windows\Start Menu\Programs";
-
-   SW_Show_Normal : constant Interfaces.C.int := 1;
-
-   --  Returns > 32 on success. It is an HINSTANCE for historical reasons only; the
-   --  value means nothing else.
-   function Shell_Execute
-     (Window     : System.Address;
-      Operation  : System.Address;
-      File       : System.Address;
-      Parameters : System.Address;
-      Directory  : System.Address;
-      Show       : Interfaces.C.int)
-      return System.Address
-     with Import => True, Convention => Stdcall, External_Name => "ShellExecuteW";
-
-   function Wide (Value : String) return Wide_String is
-     (Ada.Strings.UTF_Encoding.Wide_Strings.Decode (Value) & Wide_Character'Val (0));
 
    --  The Start Menu is a tree -- shortcuts sit in per-vendor folders -- so a scan of
    --  the top level alone would find almost nothing.
@@ -99,30 +77,13 @@ package body Launcher.Applications.Platform is
          return Apps;
    end Installed_Native;
 
+   --  A .lnk whose path routinely contains spaces cannot be got to cmd as a quoted
+   --  command line -- the C runtime escapes the quotes on the way in, and cmd strips the
+   --  ones it finds. Hostkit hands the path itself to the shell API, and nothing quotes
+   --  or parses anything.
    function Launch_Native (App : Application) return Boolean is
-      Path      : constant String := To_String (App.Exec);
-      Wide_Path : aliased Wide_String := Wide (Path);
-      Operation : aliased Wide_String := Wide ("open");
-      Result    : System.Address;
    begin
-      if Path = "" then
-         return False;
-      end if;
-
-      Result :=
-        Shell_Execute
-          (Window     => System.Null_Address,
-           Operation  => Operation'Address,
-           File       => Wide_Path'Address,
-           Parameters => System.Null_Address,
-           Directory  => System.Null_Address,
-           Show       => SW_Show_Normal);
-
-      --  Anything at or below 32 is one of the documented failure codes.
-      return System.Storage_Elements.To_Integer (Result) > 32;
-   exception
-      when others =>
-         return False;
+      return Hostkit.Process.Open_Native (To_String (App.Exec));
    end Launch_Native;
 
 end Launcher.Applications.Platform;

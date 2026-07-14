@@ -16,7 +16,11 @@ gnat_native = "=15.2.1"
 [[depends-on]]
 guikit = "*"
 
+[[depends-on]]
+hostkit = "*"
+
 [[pins]]
+hostkit = { path = "../hostkit" }
 guikit = { path = "../guikit" }
 
 [[depends-on]]

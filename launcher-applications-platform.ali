@@ -5,6 +5,7 @@ A -gnatW8
 A -gnaty3
 A -gnatyM120
 A -gnatwa
+A -gnatX
 A -mtune=generic
 A -march=x86-64
 P NO

@@ -7,7 +7,7 @@ with Ada.Strings.Hash;
 with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
-with GNAT.OS_Lib;
+with Hostkit.Process;
 
 with Launcher.Applications.Platform;
 
@@ -226,69 +226,25 @@ package body Launcher.Applications is
       return Apps;
    end Installed;
 
-   --  An Exec is a command line, not a program and a list of arguments, so it has to
-   --  go through a shell -- but not always /bin/sh, which is what was named here and
-   --  which Windows does not have.
-   --
-   --  COMSPEC is how Windows says which shell it has. "/S /C" is the reliable way in:
-   --  cmd strips the first and last quote of everything after /S and runs the rest
-   --  verbatim, and the outer quotes are exactly what the C runtime adds when it
-   --  rebuilds the command line from this vector. Without /S, cmd applies a rule of
-   --  its own and cuts through the quoting.
-   function Shell_Executable return String is
-      Comspec : constant String := Env ("COMSPEC", "");
-      Shell   : constant String := Env ("SHELL", "");
-   begin
-      if Comspec /= "" then
-         return Comspec;
-      elsif Shell /= "" then
-         return Shell;
-      else
-         return "/bin/sh";
-      end if;
-   end Shell_Executable;
-
+   --  An Exec is a command line, not a program and a list of arguments, so it goes
+   --  through a shell -- which one, and how its arguments are quoted, is Hostkit's
+   --  problem now rather than a second copy of the answer here.
    function Launch (App : Application) return Boolean is
-      use GNAT.OS_Lib;
-      Command : aliased String := To_String (App.Exec);
-      Shell   : constant String := Shell_Executable;
-      Uses_Cmd : constant Boolean := Env ("COMSPEC", "") /= "";
-
-      --  cmd wants /S and /C as separate arguments; sh wants a single -c.
-      Slash_S : aliased String := "/S";
-      Slash_C : aliased String := "/C";
-      Dash_C  : aliased String := "-c";
-
-      Cmd_Args : constant Argument_List :=
-        [1 => Slash_S'Unchecked_Access,
-         2 => Slash_C'Unchecked_Access,
-         3 => Command'Unchecked_Access];
-      Sh_Args  : constant Argument_List :=
-        [1 => Dash_C'Unchecked_Access, 2 => Command'Unchecked_Access];
-
-      Pid : Process_Id;
+      Command : constant String := To_String (App.Exec);
+      Status  : Integer := -1;
    begin
       if Command = "" then
          return False;
       end if;
 
-      --  Windows starts a Start Menu shortcut through the shell API, not by running a
-      --  command line -- see Launcher.Applications.Platform. Everywhere else this is
-      --  False and the Exec goes to the shell, as it always has.
+      --  Windows starts a Start Menu shortcut through the shell API rather than by
+      --  running a command line. Everywhere else this is False and the Exec goes to the
+      --  shell, as it always has.
       if Launcher.Applications.Platform.Launch_Native (App) then
          return True;
       end if;
 
-      if Shell = "" then
-         return False;
-      end if;
-
-      Pid :=
-        (if Uses_Cmd
-         then Non_Blocking_Spawn (Shell, Cmd_Args)
-         else Non_Blocking_Spawn (Shell, Sh_Args));
-
-      return Pid /= Invalid_Pid;
+      return Hostkit.Process.Run_Shell_Command (Command, Wait => False, Exit_Status => Status);
    exception
       when others =>
          return False;
