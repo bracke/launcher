@@ -53,18 +53,18 @@ package body Launcher.Icons is
    end Exists;
 
    Themes : constant array (1 .. 3) of Const_String_Access :=
-     (new String'("hicolor"), new String'("Adwaita"), new String'("breeze"));
+     [new String'("hicolor"), new String'("Adwaita"), new String'("breeze")];
    Png_Sizes : constant array (1 .. 8) of Const_String_Access :=
-     (new String'("512x512"), new String'("256x256"), new String'("128x128"),
+     [new String'("512x512"), new String'("256x256"), new String'("128x128"),
       new String'("96x96"), new String'("64x64"), new String'("48x48"),
-      new String'("32x32"), new String'("24x24"));
+      new String'("32x32"), new String'("24x24")];
    Pixmap_Exts : constant array (1 .. 3) of Const_String_Access :=
-     (new String'(".png"), new String'(".svg"), new String'(".xpm"));
+     [new String'(".png"), new String'(".svg"), new String'(".xpm")];
    --  KDE/breeze uses <theme>/apps/<size>/<name> (category before a bare size),
    --  the reverse of the freedesktop <theme>/<size>/apps/<name> layout.
    Kde_Sizes : constant array (1 .. 6) of Const_String_Access :=
-     (new String'("64"), new String'("48"), new String'("32"),
-      new String'("24"), new String'("22"), new String'("16"));
+     [new String'("64"), new String'("48"), new String'("32"),
+      new String'("24"), new String'("22"), new String'("16")];
 
    --  Resolve an icon name to a file by scanning the XDG icon theme directories,
    --  preferring a large PNG (always decodable) then a scalable SVG.
@@ -73,10 +73,10 @@ package body Launcher.Icons is
       Data_Home : constant String :=
         Env ("XDG_DATA_HOME", (if Home = "" then "" else Home & "/.local/share"));
       Bases : constant array (1 .. 4) of Const_String_Access :=
-        (new String'((if Home = "" then "" else Home & "/.icons")),
+        [new String'((if Home = "" then "" else Home & "/.icons")),
          new String'((if Data_Home = "" then "" else Data_Home & "/icons")),
          new String'("/usr/local/share/icons"),
-         new String'("/usr/share/icons"));
+         new String'("/usr/share/icons")];
    begin
       for Base of Bases loop
          if Base.all /= "" then

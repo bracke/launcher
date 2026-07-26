@@ -1,0 +1,4 @@
+default_locale = en
+en.app.name = "launcher"
+en.palette.placeholder = "Type to search applications..."
+en.palette.empty = "No matching applications"

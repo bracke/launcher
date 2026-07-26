@@ -160,7 +160,7 @@ package body Launcher.Applications is
       if not Exists (Dir) or else Kind (Dir) /= Directory then
          return;
       end if;
-      Start_Search (Search, Dir, "*.desktop", (Ordinary_File => True, others => False));
+      Start_Search (Search, Dir, "*.desktop", [Ordinary_File => True, others => False]);
       while More_Entries (Search) loop
          Get_Next_Entry (Search, Item);
          declare

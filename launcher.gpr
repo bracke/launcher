@@ -1,4 +1,5 @@
 with "config/launcher_config.gpr";
+with "../messages/messages.gpr";
 project Launcher is
 
    case Launcher_Config.Alire_Host_OS is
@@ -43,5 +44,9 @@ project Launcher is
    package Builder is
       for Executable ("launcher-main.adb") use "launcher";
    end Builder;
+
+   package Install is
+      for Artifacts (".") use ("share");
+   end Install;
 
 end Launcher;

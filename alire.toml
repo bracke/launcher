@@ -19,9 +19,17 @@ guikit = "*"
 [[depends-on]]
 hostkit = "*"
 
+[[depends-on]]
+messages = "*"
+
+[[depends-on]]
+i18n = "*"
+
 [[pins]]
 hostkit = { path = "../hostkit" }
 guikit = { path = "../guikit" }
+messages = { path = "../messages" }
+i18n = { path = "../i18n" }
 
 [[depends-on]]
 textrender = "*"
@@ -43,5 +51,19 @@ utilada = "^2.9.0"
 # its generated config gpr: if one root built it at -O3 and the other at -Og, each
 # switch would silently force a full guikit rebuild. Keeping every root on the same
 # profile lets them share object files.
+# Bundle i18n's generated locale data into share/i18n after every build. launcher
+# renders its catalog through the messages crate, which serves formatting from
+# those files at runtime, so a deployed bin/launcher must ship them (found at
+# Exe/../share/i18n). bundle_i18n_data is a standalone Ada tool (tools/i18n_bundle)
+# kept out of the app's own bin so it is never installed; build it, then run it.
+# Both steps are plain executables -- no shell.
+[[actions]]
+type = "post-build"
+command = ["gprbuild", "-P", "tools/i18n_bundle/bundle_i18n_data.gpr", "-p", "-q"]
+
+[[actions]]
+type = "post-build"
+command = ["tools/i18n_bundle/bin/bundle_i18n_data"]
+
 [build-profiles]
 "*" = "development"

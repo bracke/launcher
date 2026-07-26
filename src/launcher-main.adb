@@ -15,6 +15,7 @@ with Guikit.Vulkan;
 
 with Launcher.Applications;
 with Launcher.Fonts;
+with Launcher.Messages;
 with Launcher.Model;
 
 procedure Launcher.Main is
@@ -66,7 +67,6 @@ procedure Launcher.Main is
 
    function As_Window (Handle : Window_Access) return Glfw.Windows.Window_Reference is
      (Glfw.Windows.Window_Reference (Handle));
-
 
    --  Encode one input codepoint as UTF-8, dropping control characters.
    overriding procedure Character_Entered
@@ -319,8 +319,8 @@ begin
        Show_Shortcuts => False,
        Overlay        => False,
        Wrap_Selection => False,
-       Placeholder    => To_Unbounded_String ("Type to search applications..."),
-       Empty_State    => To_Unbounded_String ("No matching applications"),
+       Placeholder    => To_Unbounded_String (Launcher.Messages.Text ("palette.placeholder")),
+       Empty_State    => To_Unbounded_String (Launcher.Messages.Text ("palette.empty")),
        Title          => Null_Unbounded_String));
    Guikit.Command_Palette.Set_Commands (Palette, Launcher.Model.Commands (M));
 

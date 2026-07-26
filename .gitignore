@@ -10,3 +10,8 @@
 /tools/bin/
 /tools/alire/
 /tools/config/
+
+# Bundled i18n locale data (generated, copied from the i18n dependency)
+/share/i18n/
+/tools/i18n_bundle/bin/
+/tools/i18n_bundle/obj/

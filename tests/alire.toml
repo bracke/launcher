@@ -20,9 +20,17 @@ guikit = "*"
 [[depends-on]]
 hostkit = "*"
 
+[[depends-on]]
+messages = "*"
+
+[[depends-on]]
+i18n = "*"
+
 [[pins]]
 hostkit = { path = "../../hostkit" }
 guikit = { path = "../../guikit" }
+messages = { path = "../../messages" }
+i18n = { path = "../../i18n" }
 
 [[depends-on]]
 textrender = "*"
