@@ -53,6 +53,56 @@ jobs:
           repository: ${{ github.repository_owner }}/hostkit
           path: hostkit
 
+      # launcher now localizes through the messages crate, which depends on i18n.
+      # Building i18n runs its pre-build regeneration -- download_tzdb (httpclient,
+      # zlib, tarlib, awklib-on-regexp) and the CLDR import (project_tools,
+      # cryptolib) -- so all of those siblings must be checked out.
+      - name: Check out messages sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/messages
+          path: messages
+      - name: Check out i18n sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/i18n
+          path: i18n
+      - name: Check out project_tools sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/project_tools
+          path: project_tools
+      - name: Check out httpclient sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/httpclient
+          path: httpclient
+      - name: Check out zlib sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/zlib
+          path: zlib
+      - name: Check out cryptolib sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/cryptolib
+          path: cryptolib
+      - name: Check out tarlib sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/tarlib
+          path: tarlib
+      - name: Check out awklib sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/awklib
+          path: awklib
+      - name: Check out regexp sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/regexp
+          path: regexp
+
       - name: Install system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -70,6 +120,8 @@ jobs:
             libxrandr-dev \
             libxinerama-dev \
             libxi-dev
+          # OpenSSL for httpclient's TLS bridge (i18n's download_tzdb links it).
+          sudo apt-get install -y libssl-dev
           sudo apt-get install -y libaunit-dev \
             || sudo apt-get install -y libaunit22-dev \
             || sudo apt-get install -y libaunit24-dev
@@ -80,11 +132,13 @@ jobs:
           brew update
           # MoltenVK provides the Vulkan loader/ICD on macOS; gdk-pixbuf pulls in
           # glib, which the test binary's linker switches name.
-          brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf
+          # openssl@3: httpclient's TLS bridge (i18n's download_tzdb links it).
+          brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf openssl@3
 
           # Homebrew on the x86_64 runner installs under /usr/local, which is not on
-          # the linker's default search path.
-          echo "LIBRARY_PATH=$(brew --prefix)/lib" >> "$GITHUB_ENV"
+          # the linker's default search path; openssl@3 is keg-only, so add its lib
+          # dir too.
+          echo "LIBRARY_PATH=$(brew --prefix)/lib:$(brew --prefix openssl@3)/lib" >> "$GITHUB_ENV"
 
       - name: Install system libraries (Windows)
         if: runner.os == 'Windows'
@@ -105,10 +159,12 @@ jobs:
           pacman-key --init || true
           pacman-key --populate msys2 || true
 
+          # openssl: httpclient's TLS bridge (i18n's download_tzdb links it).
           packages="mingw-w64-x86_64-vulkan-loader
                     mingw-w64-x86_64-glib2
                     mingw-w64-x86_64-gdk-pixbuf2
-                    mingw-w64-x86_64-glfw"
+                    mingw-w64-x86_64-glfw
+                    mingw-w64-x86_64-openssl"
 
           # The mirrors stall often enough to matter -- a sync dies on "less than 1
           # bytes/sec" rather than on anything we did -- so give each sync room to be
