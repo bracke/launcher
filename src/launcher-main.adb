@@ -368,9 +368,13 @@ begin
    --  Main loop.
    while not Glfw.Windows.Should_Close (As_Window (Handle)) loop
       --  Launcher is fully event-driven: no animation, no background task, and
-      --  GLFW delivers key auto-repeat as events. So block for a long time and
-      --  let any real event wake the loop, instead of spinning ~20 times a second.
-      Guikit.Vulkan.Wait_For_Events (1.0);
+      --  GLFW delivers key auto-repeat as events. The Dirty gate below already
+      --  skips the build/submit/present path for unchanged frames, so idle CPU
+      --  stays near zero. Wait only a frame's worth so input is always handled
+      --  promptly -- a long block let keystrokes lag when the event did not wake
+      --  Wait_For_Events immediately (once we stop presenting, the compositor
+      --  stops waking us, so the block was real).
+      Guikit.Vulkan.Wait_For_Events (0.016);
       Guikit.Vulkan.Poll_Events;
 
       if Length (Handle.Pending_Text) > 0 then
