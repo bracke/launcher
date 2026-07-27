@@ -27,20 +27,20 @@ jobs:
         os: [ubuntu-latest, macos-15-intel, windows-latest]
     steps:
       - name: Check out launcher
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: launcher
 
       # launcher pins guikit and textrender as path dependencies, and guikit in
       # turn pins textrender, so both must exist as sibling checkouts.
       - name: Check out guikit sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/guikit
           path: guikit
 
       - name: Check out textrender sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/textrender
           path: textrender
@@ -48,7 +48,7 @@ jobs:
       # launcher asks hostkit what the host does -- which shell, how it quotes, how it
       # starts a shortcut -- so it is a path dependency like the others.
       - name: Check out hostkit sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/hostkit
           path: hostkit
@@ -58,47 +58,47 @@ jobs:
       # zlib, tarlib, awklib-on-regexp) and the CLDR import (project_tools,
       # cryptolib) -- so all of those siblings must be checked out.
       - name: Check out messages sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/messages
           path: messages
       - name: Check out i18n sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/i18n
           path: i18n
       - name: Check out project_tools sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/project_tools
           path: project_tools
       - name: Check out httpclient sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/httpclient
           path: httpclient
       - name: Check out zlib sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/zlib
           path: zlib
       - name: Check out cryptolib sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/cryptolib
           path: cryptolib
       - name: Check out tarlib sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/tarlib
           path: tarlib
       - name: Check out awklib sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/awklib
           path: awklib
       - name: Check out regexp sibling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/regexp
           path: regexp
@@ -206,7 +206,7 @@ jobs:
         # Pin the toolchain the manifests require. setup-alire@v5 defaults to alr
         # 2.1.0, whose index carries gnat_native 15.2.1; v4 pins alr 2.0.2, whose
         # older index cannot resolve it.
-        uses: alire-project/setup-alire@v5
+        uses: alire-project/setup-alire@v6
         with:
           toolchain: gnat_native=15.2.1 gprbuild
 
