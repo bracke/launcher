@@ -35,6 +35,11 @@ procedure Launcher.Main is
       Pending_End       : Boolean := False;
       Pending_Backspace : Natural := 0;
       Pending_Click     : Boolean := False;
+      --  Time of the last accepted left press, for bounce rejection: a failing
+      --  mouse switch (or an un-debounced compositor) can emit a spurious second
+      --  press microseconds after the real one, which would activate twice.
+      Have_Left_Press   : Boolean := False;
+      Last_Left_Press   : Glfw.Seconds := 0.0;
       Pending_Scroll    : Integer := 0;
       Mouse_X           : Integer := -1;
       Mouse_Y           : Integer := -1;
@@ -129,6 +134,21 @@ procedure Launcher.Main is
       pragma Unreferenced (Mods);
    begin
       if Button = Glfw.Input.Mouse.Left_Button and then State = Glfw.Input.Pressed then
+         declare
+            use type Glfw.Seconds;
+            Now : constant Glfw.Seconds := Glfw.Time;
+         begin
+            --  Drop a press that follows the previous accepted one too closely to
+            --  be a real click -- a switch bounce that would otherwise fire twice.
+            if Object.Have_Left_Press
+              and then Now - Object.Last_Left_Press < 0.040
+            then
+               return;
+            end if;
+            Object.Last_Left_Press := Now;
+            Object.Have_Left_Press := True;
+         end;
+
          Object.Pending_Click := True;
          Object.Dirty := True;
       end if;
