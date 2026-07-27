@@ -190,6 +190,15 @@ procedure Launcher.Main is
    Last_Frame_H : Glfw.Size := 0;
    pragma Unreferenced (Ignore_St, Ignore_Ts);
 
+   --  Present-grace window: keep drawing every frame for a short spell after the
+   --  last change (input or resize) instead of stopping the instant the dirty
+   --  flag clears. Presenting every frame keeps us on the compositor's frame
+   --  clock, which paces input at the display rate; once we stop, the first
+   --  interaction after an idle gap stalls. ~24 frames is ~0.4s at 60fps; normal
+   --  typing refills it, and a truly idle launcher still drops to no presenting.
+   Present_Grace_Frames : constant := 24;
+   Present_Grace : Natural := 0;
+
    --  Render one frame: bring the swapchain up, build and submit the palette,
    --  and present. The component owns the row layout (for click hit-testing).
    procedure Draw_Frame
@@ -443,12 +452,19 @@ begin
             Last_Frame_H := Frame_H;
          end if;
 
-         --  Redraw only when something changed. Otherwise the identical frame is
-         --  already on screen, so the build/submit/present path is skipped. The
-         --  Readback_Enabled arm keeps the (separate) smoke loop presenting.
-         if Handle.Dirty or else Guikit.Vulkan.Readback_Enabled (Vulkan) then
-            Draw_Frame (Handle, Vulkan, Text, Palette);
+         --  A change opens the grace window; we then keep presenting every frame
+         --  through it (see Present_Grace_Frames) so input stays paced to the
+         --  display, and only stop once genuinely idle. The Readback_Enabled arm
+         --  keeps the (separate) smoke loop presenting.
+         if Handle.Dirty then
+            Present_Grace := Present_Grace_Frames;
             Handle.Dirty := False;
+         end if;
+         if Present_Grace > 0 or else Guikit.Vulkan.Readback_Enabled (Vulkan) then
+            Draw_Frame (Handle, Vulkan, Text, Palette);
+            if Present_Grace > 0 then
+               Present_Grace := Present_Grace - 1;
+            end if;
          end if;
 
          if Handle.Pending_Click then
