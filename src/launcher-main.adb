@@ -38,6 +38,10 @@ procedure Launcher.Main is
       Pending_Scroll    : Integer := 0;
       Mouse_X           : Integer := -1;
       Mouse_Y           : Integer := -1;
+      --  Set by every input callback; the main loop redraws only when set (or on
+      --  resize), so an idle launcher stops re-presenting the same frame and
+      --  waking ~20 times a second. Starts True so the first frame draws.
+      Dirty             : Boolean := True;
    end record;
 
    overriding procedure Character_Entered
@@ -78,6 +82,7 @@ procedure Launcher.Main is
       --  Ignore control characters; Guikit.Utf8.Encode handles the UTF-8 bytes.
       if Code >= Character'Pos (' ') then
          Append (Object.Pending_Text, Guikit.Utf8.Encode (Code));
+         Object.Dirty := True;
       end if;
    end Character_Entered;
 
@@ -95,6 +100,7 @@ procedure Launcher.Main is
       if Action = Glfw.Input.Keys.Release then
          return;
       end if;
+      Object.Dirty := True;
       if Key = Glfw.Input.Keys.Escape then
          Object.Pending_Escape := True;
       elsif Key = Glfw.Input.Keys.Enter or else Key = Glfw.Input.Keys.Numpad_Enter then
@@ -124,6 +130,7 @@ procedure Launcher.Main is
    begin
       if Button = Glfw.Input.Mouse.Left_Button and then State = Glfw.Input.Pressed then
          Object.Pending_Click := True;
+         Object.Dirty := True;
       end if;
    end Mouse_Button_Changed;
 
@@ -134,6 +141,7 @@ procedure Launcher.Main is
    begin
       Object.Mouse_X := Integer (X);
       Object.Mouse_Y := Integer (Y);
+      Object.Dirty := True;
    end Mouse_Position_Changed;
 
    overriding procedure Mouse_Scrolled
@@ -146,6 +154,7 @@ procedure Launcher.Main is
       --  Accumulate whole wheel notches; the main loop turns them into selection
       --  movement (wheel up moves the highlight up).
       Object.Pending_Scroll := Object.Pending_Scroll + Integer (Y);
+      Object.Dirty := True;
    end Mouse_Scrolled;
 
    Handle       : constant Window_Access := new Launcher_Window;
@@ -155,6 +164,10 @@ procedure Launcher.Main is
    Palette      : Guikit.Command_Palette.Palette;
    Ignore_St    : Guikit.Vulkan.Vulkan_Status;
    Ignore_Ts    : Guikit.Draw.Text_Render_Status;
+   --  Track the framebuffer size so a resize (not delivered through the input
+   --  callbacks) still forces a redraw under the dirty gate.
+   Last_Frame_W : Glfw.Size := 0;
+   Last_Frame_H : Glfw.Size := 0;
    pragma Unreferenced (Ignore_St, Ignore_Ts);
 
    --  Render one frame: bring the swapchain up, build and submit the palette,
@@ -354,7 +367,10 @@ begin
 
    --  Main loop.
    while not Glfw.Windows.Should_Close (As_Window (Handle)) loop
-      Guikit.Vulkan.Wait_For_Events (0.05);
+      --  Launcher is fully event-driven: no animation, no background task, and
+      --  GLFW delivers key auto-repeat as events. So block for a long time and
+      --  let any real event wake the loop, instead of spinning ~20 times a second.
+      Guikit.Vulkan.Wait_For_Events (1.0);
       Guikit.Vulkan.Poll_Events;
 
       if Length (Handle.Pending_Text) > 0 then
@@ -390,8 +406,26 @@ begin
 
       declare
          App : Launcher.Applications.Application;
+         Frame_W, Frame_H : Glfw.Size;
       begin
-         Draw_Frame (Handle, Vulkan, Text, Palette);
+         --  A resize is not delivered through the input callbacks, so detect it
+         --  here and mark dirty; otherwise the resized window would not repaint.
+         Glfw.Windows.Get_Framebuffer_Size (As_Window (Handle), Frame_W, Frame_H);
+         if Natural (Frame_W) /= Natural (Last_Frame_W)
+           or else Natural (Frame_H) /= Natural (Last_Frame_H)
+         then
+            Handle.Dirty := True;
+            Last_Frame_W := Frame_W;
+            Last_Frame_H := Frame_H;
+         end if;
+
+         --  Redraw only when something changed. Otherwise the identical frame is
+         --  already on screen, so the build/submit/present path is skipped. The
+         --  Readback_Enabled arm keeps the (separate) smoke loop presenting.
+         if Handle.Dirty or else Guikit.Vulkan.Readback_Enabled (Vulkan) then
+            Draw_Frame (Handle, Vulkan, Text, Palette);
+            Handle.Dirty := False;
+         end if;
 
          if Handle.Pending_Click then
             Handle.Pending_Click := False;
