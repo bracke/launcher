@@ -1,4 +1,3 @@
-with Ada.Characters.Handling;
 with Ada.Containers.Indefinite_Hashed_Sets;
 with Ada.Directories;
 with Ada.Environment_Variables;
@@ -188,12 +187,6 @@ package body Launcher.Applications is
       Seen : String_Sets.Set;
       Apps : Application_Vectors.Vector;
       First : Integer := Dirs'First;
-
-      function Less (Left, Right : Application) return Boolean is
-        (Ada.Characters.Handling.To_Lower (To_String (Left.Name))
-           < Ada.Characters.Handling.To_Lower (To_String (Right.Name)));
-
-      package Sorting is new Application_Vectors.Generic_Sorting ("<" => Less);
    begin
       for I in Dirs'Range loop
          if Dirs (I) = ':' then
@@ -222,7 +215,8 @@ package body Launcher.Applications is
          end;
       end loop;
 
-      Sorting.Sort (Apps);
+      --  Returned unsorted: the sole caller (Launcher.Model.Load) immediately
+      --  re-sorts by launch frequency, so sorting by name here was pure waste.
       return Apps;
    end Installed;
 
