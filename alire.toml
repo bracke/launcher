@@ -6,6 +6,7 @@ authors = ["Bent Bracke"]
 maintainers = ["Bent Bracke <bent@bracke.dk>"]
 maintainers-logins = ["bracke"]
 licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+long-description = "A minimal, keyboard-driven application launcher for Linux, built on the guikit toolkit. Type to fuzzy-filter your installed applications, arrow keys (or the mouse wheel) to move the selection, Home/End to jump,"
 tags = ["launcher", "gui"]
 
 executables = ["launcher"]
