@@ -1,4 +1,5 @@
 with Ada.Directories;
+with Ada.Environment_Variables;
 
 package body Launcher.Fonts is
 
@@ -26,6 +27,40 @@ package body Launcher.Fonts is
       new String'("/System/Library/Fonts/Helvetica.ttc"),
       new String'("C:\Windows\Fonts\segoeui.ttf"),
       new String'("C:\Windows\Fonts\arial.ttf")];
+
+   --  Colour emoji, and last in the chain on purpose: the chain is resolved by
+   --  asking each font whether it maps a codepoint and taking the first that
+   --  says yes, and an emoji font maps far more than emoji -- arrows, stars, the
+   --  check mark. Ahead of the text fonts it would capture characters those draw
+   --  perfectly well.
+   --
+   --  Only the layered kind is listed. Textrender draws COLR/CPAL glyphs from
+   --  outlines and a palette, needing nothing but the font; the bitmap kinds
+   --  (Noto Color Emoji on Linux, Apple Color Emoji on macOS) hold PNGs and want
+   --  a decoder from the caller, which the launcher has no reason to link. So
+   --  Windows gets emoji from Segoe out of the box, and a Linux machine gets them
+   --  wherever a COLR font is installed.
+   Emoji_Candidates : constant array (Positive range <>) of access constant String :=
+     [new String'("/usr/share/fonts/truetype/twemoji/TwemojiMozilla.ttf"),
+      new String'("/usr/share/fonts/TTF/TwemojiMozilla.ttf"),
+      new String'("C:\Windows\Fonts\seguiemj.ttf")];
+
+   --  A font the user installed for themselves, which is where one lands without
+   --  root. Checked after the system locations, and skipped when HOME is unset.
+   function User_Emoji_Font return String;
+
+   function User_Emoji_Font return String is
+   begin
+      if not Ada.Environment_Variables.Exists ("HOME") then
+         return "";
+      end if;
+
+      return Ada.Environment_Variables.Value ("HOME")
+        & "/.local/share/fonts/TwemojiMozilla.ttf";
+   exception
+      when others =>
+         return "";
+   end User_Emoji_Font;
 
    function Exists (Path : String) return Boolean is
       use type Ada.Directories.File_Kind;
@@ -55,6 +90,17 @@ package body Launcher.Fonts is
             Result.Append (Candidate.all);
          end if;
       end loop;
+
+      for Candidate of Emoji_Candidates loop
+         if Exists (Candidate.all) then
+            Result.Append (Candidate.all);
+         end if;
+      end loop;
+
+      if User_Emoji_Font /= "" and then Exists (User_Emoji_Font) then
+         Result.Append (User_Emoji_Font);
+      end if;
+
       return Result;
    end Fallbacks;
 
