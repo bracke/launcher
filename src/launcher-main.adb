@@ -9,6 +9,7 @@ with Glfw.Windows;
 
 with Guikit.Command_Palette;
 with Guikit.Draw;
+with Guikit.Layout;
 with Guikit.Text;
 with Guikit.Utf8;
 with Guikit.Vulkan;
@@ -346,8 +347,11 @@ begin
       Ignore_Ts :=
         Guikit.Text.Initialize
           (Text, Primary, Launcher.Fonts.Fallbacks,
-           Pixel_Size   => 18,
-           Cell_Width   => 14,
+           --  Sized from the line height, as files does: the font at four
+           --  fifths of it, the cell at the advance guikit's widgets measure
+           --  labels and carets with.
+           Pixel_Size   => Line_Height * 4 / 5,
+           Cell_Width   => Guikit.Layout.Caret_Advance_Width (Line_Height),
            Cell_Height  => Line_Height,
            Atlas_Width  => 1024,
            Atlas_Height => 1024);
