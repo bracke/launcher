@@ -2,6 +2,8 @@ with Ada.Directories;
 with Ada.Environment_Variables;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 
+with Hostkit.Resources;
+
 with Messages.Arguments;
 with Messages.Result;
 with Messages.Runtime;
@@ -15,21 +17,11 @@ package body Launcher.Messages is
    Locale      : Unbounded_String := To_Unbounded_String ("en");
    Initialized : Boolean := False;
 
-   --  share/launcher.catalog resolved relative to the working directory, with
-   --  build-tree fallbacks (the app runs from its install prefix, the tests
-   --  from the tests crate).
+   --  share/launcher.catalog found from the program's own executable (beside it,
+   --  or above an installed bin/ or a tests/bin/), never from the directory it
+   --  was started in.
    function Catalog_Path return String is
-   begin
-      if Ada.Directories.Exists ("share/launcher.catalog") then
-         return "share/launcher.catalog";
-      elsif Ada.Directories.Exists ("../share/launcher.catalog") then
-         return "../share/launcher.catalog";
-      elsif Ada.Directories.Exists ("../../share/launcher.catalog") then
-         return "../../share/launcher.catalog";
-      else
-         return "share/launcher.catalog";
-      end if;
-   end Catalog_Path;
+     (Hostkit.Resources.Beside_Executable ("share/launcher.catalog"));
 
    --  The system locale's language part (LC_ALL, then LC_MESSAGES, then LANG),
    --  or "en" for an empty, C, or POSIX value.
