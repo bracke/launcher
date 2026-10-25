@@ -38,7 +38,7 @@ package body Launcher.Usage is
          return Result;
       end if;
 
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          declare
             Line : constant String := Ada.Text_IO.Get_Line (File);
@@ -86,7 +86,7 @@ package body Launcher.Usage is
          return;
       end if;
       Ada.Directories.Create_Path (Dir);
-      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path);
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path, Form => "shared=no");
       for C in S.Counts.Iterate loop
          Ada.Text_IO.Put_Line
            (File,

@@ -101,7 +101,7 @@ package body Launcher.Applications is
    begin
       App   := (others => Null_Unbounded_String);
       Found := False;
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          declare
             Line : constant String :=
