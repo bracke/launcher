@@ -109,7 +109,7 @@ package body Launcher_Suite.Fonts is
             Assert (Icon.Thumbnail_Width > 0 and then Icon.Thumbnail_Height > 0,
                     "the picture has a size");
             Assert
-              (Natural (Icon.Thumbnail_Pixels.Length)
+              (Icon.Thumbnail_Pixels.Length
                  = Icon.Thumbnail_Width * Icon.Thumbnail_Height * 4,
                "with four bytes for each of its pixels");
          end loop;

@@ -1,6 +1,6 @@
 with Ada.Containers.Vectors;
 
-with Guikit.Draw;
+with Guikit.Shared_Bytes;
 
 --  Application-icon loading for the launcher: resolve a freedesktop `.desktop`
 --  Icon= value (an icon name or an absolute path) to a file via the XDG icon
@@ -12,7 +12,9 @@ package Launcher.Icons is
    type Loaded_Icon is record
       Width  : Natural := 0;
       Height : Natural := 0;
-      Pixels : Guikit.Draw.Byte_Vectors.Vector;
+      --  Shared, so the palette's command list rebuilt from it does not
+      --  copy every icon.
+      Pixels : Guikit.Shared_Bytes.Bytes;
    end record;
    --  Width = 0 means "no icon" (not found, empty, or failed to decode).
 

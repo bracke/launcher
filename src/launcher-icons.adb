@@ -154,6 +154,7 @@ package body Launcher.Icons is
          type Byte_Array is array (Natural range <>) of Interfaces.Unsigned_8;
          Src    : Byte_Array (0 .. (if H = 0 then 0 else H * Stride - 1))
            with Import, Address => Addr;
+         Rgba   : Guikit.Shared_Bytes.Byte_Vectors.Vector;
       begin
          if W > 0 and then H > 0 and then N >= 3 and then Stride >= W * N then
             for Y in 0 .. H - 1 loop
@@ -161,13 +162,14 @@ package body Launcher.Icons is
                   declare
                      Base : constant Natural := Y * Stride + X * N;
                   begin
-                     Result.Pixels.Append (Src (Base));
-                     Result.Pixels.Append (Src (Base + 1));
-                     Result.Pixels.Append (Src (Base + 2));
-                     Result.Pixels.Append (if N >= 4 then Src (Base + 3) else 255);
+                     Rgba.Append (Src (Base));
+                     Rgba.Append (Src (Base + 1));
+                     Rgba.Append (Src (Base + 2));
+                     Rgba.Append (if N >= 4 then Src (Base + 3) else 255);
                   end;
                end loop;
             end loop;
+            Result.Pixels := Guikit.Shared_Bytes.To_Shared (Rgba);
             Result.Width := W;
             Result.Height := H;
          end if;
@@ -180,7 +182,7 @@ package body Launcher.Icons is
          if Pixbuf /= System.Null_Address then
             G_Object_Unref (Pixbuf);
          end if;
-         return (Width => 0, Height => 0, Pixels => Guikit.Draw.Byte_Vectors.Empty_Vector);
+         return (Width => 0, Height => 0, Pixels => Guikit.Shared_Bytes.Empty);
    end Load_Pixbuf;
 
    function Load (Icon : String; Size : Positive) return Loaded_Icon is
@@ -190,7 +192,7 @@ package body Launcher.Icons is
          else Resolve (Icon));
    begin
       if Path = "" then
-         return (Width => 0, Height => 0, Pixels => Guikit.Draw.Byte_Vectors.Empty_Vector);
+         return (Width => 0, Height => 0, Pixels => Guikit.Shared_Bytes.Empty);
       end if;
       return Load_Pixbuf (Path, Size);
    end Load;
