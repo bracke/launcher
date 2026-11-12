@@ -13,19 +13,19 @@ without re-implementing any of them.
 
 ## What it reuses from guikit
 
-- **`Guikit.Palette`** — the fuzzy search + ranking over the app list.
-- **`Guikit.Layout`** — `Calculate_Palette_Layout` / `Calculate_Palette_Result_Rows`
-  / `Palette_Result_At` for the overlay geometry and click hit-testing.
-- **`Guikit.Widgets`** — `Draw_Menu_Panel`, `Draw_Input_Field`, `Draw_Palette_Row`.
+- **`Guikit.Command_Palette`** — the whole overlay: fuzzy search and ranking,
+  the query field, the result rows with icons, scrolling, and click and wheel
+  hit-testing.
+- **`Guikit.Text`** — font loading and the glyph atlas (over `Textrender`).
 - **`Guikit.Vulkan`** — window surface, swapchain, submission + present.
-- **`Guikit.Utf8`** — text measurement.
-- **`Textrender`** — font loading + the glyph atlas.
+- **`Guikit.Layout`** / **`Guikit.Utf8`** — text metrics and UTF-8 encoding.
 
 The app itself (this crate) supplies only the domain: scanning XDG `.desktop`
 applications (`Launcher.Applications`), resolving + decoding their icons
-(`Launcher.Icons`, via gdk_pixbuf), the model + state (`Launcher.Model`), the
-frame/glyph building (`Launcher.Render`), and the window + main loop
-(`Launcher.Main`).
+(`Launcher.Icons`, via gdk_pixbuf), the model + state (`Launcher.Model`),
+launch counts that float your most-used applications up (`Launcher.Usage`),
+font discovery (`Launcher.Fonts`), the message catalogue (`Launcher.Messages`),
+and the window + main loop (`Launcher.Main`).
 
 ## Build & run
 

@@ -227,7 +227,7 @@ procedure Launcher.Main is
          No_Overlay    : Guikit.Draw.Rectangle_Command_Vectors.Vector;
          No_Overlay_Tx : Guikit.Draw.Text_Command_Vectors.Vector;
          Metrics : constant Guikit.Draw.Layout_Metrics :=
-           (Width => Natural (Window_W), Height => Natural (Window_H), others => 0);
+           (Width => Natural (Window_W), Height => Natural (Window_H), Line_Height => Line_Height, others => 0);
          Glyphs  : Guikit.Draw.Text_Render_Result;
          Batch   : Guikit.Vulkan.Submission_Batch;
       begin
