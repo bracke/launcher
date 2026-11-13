@@ -1,19 +1,21 @@
 with Guikit.Text;
 
---  Font discovery for the launcher: a monospace primary face plus a small
---  fallback chain (symbols / broad Unicode) so labels with the odd non-Latin
---  glyph still render. Only paths that exist on disk are returned.
+--  Font discovery for the launcher: guikit's monospace primary face and
+--  fallback chain (Guikit.Fonts), looked for in the host's font folders, so
+--  labels with the odd non-Latin glyph or emoji still render. Only fonts that
+--  load are returned.
 package Launcher.Fonts is
 
-   --  Path to the monospace primary font, or "" if none of the candidates
-   --  exist on this system.
+   --  Path to the monospace primary font, or "" if no usable font is
+   --  present on this system.
    --
-   --  @return An existing monospace .ttf path, or the empty string.
+   --  @return A loadable font path, or the empty string.
    function Primary return String;
 
-   --  Existing fallback font paths (broad Unicode / symbol faces), in order.
+   --  Loadable fallback font paths (broad Unicode / symbol faces, then the
+   --  layered colour emoji fonts), in order.
    --
-   --  @return The fallback font paths that exist on disk.
+   --  @return The fallback font paths.
    function Fallbacks return Guikit.Text.Font_Path_Vectors.Vector;
 
 end Launcher.Fonts;

@@ -367,7 +367,9 @@ begin
        Wrap_Selection => False,
        Placeholder    => To_Unbounded_String (Launcher.Messages.Text ("palette.placeholder")),
        Empty_State    => To_Unbounded_String (Launcher.Messages.Text ("palette.empty")),
-       Title          => Null_Unbounded_String));
+       Title          => Null_Unbounded_String,
+       --  Not an overlay, so no close button is drawn to be named.
+       Close_Label    => <>));
    Guikit.Command_Palette.Set_Commands (Palette, Launcher.Model.Commands (M));
 
    --  Create the window.
