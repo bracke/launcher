@@ -20,8 +20,12 @@ without re-implementing any of them.
 - **`Guikit.Vulkan`** — window surface, swapchain, submission + present.
 - **`Guikit.Layout`** / **`Guikit.Utf8`** — text metrics and UTF-8 encoding.
 
-The app itself (this crate) supplies only the domain: scanning XDG `.desktop`
-applications (`Launcher.Applications`), resolving + decoding their icons
+The app itself (this crate) supplies only the domain: finding the installed
+applications (`Launcher.Applications`: freedesktop Desktop Entry files read per
+the specification -- escapes, `Exec` quoting and field codes, `TryExec`,
+`OnlyShowIn`/`NotShowIn`, `Terminal`, `Path`, subfolder ids -- plus the Start
+Menu on Windows and the `.app` bundles on macOS, each started by argument vector,
+never through a shell), resolving + decoding their icons
 (`Launcher.Icons`, via gdk_pixbuf), the model + state (`Launcher.Model`),
 launch counts that float your most-used applications up (`Launcher.Usage`),
 font discovery (`Launcher.Fonts`), the message catalogue (`Launcher.Messages`),

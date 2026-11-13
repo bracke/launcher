@@ -25,14 +25,17 @@ package body Launcher.Model is
       Order  : Index_Vectors.Vector;
       Sorted : Applications.Application_Vectors.Vector;
 
-      --  Most-launched first; ties keep name order. Names are unique (Installed
-      --  deduplicates on name), so this is a strict total order.
+      --  Most-launched first; ties in name order. Names are NOT unique -- two
+      --  entries may both be "Terminal" (Installed deduplicates on id) -- so the
+      --  scan order breaks the last tie, keeping this a strict total order.
       function More_Used (Left, Right : Positive) return Boolean is
       begin
          if Keys (Left).Count /= Keys (Right).Count then
             return Keys (Left).Count > Keys (Right).Count;
+         elsif Keys (Left).Name_Lower /= Keys (Right).Name_Lower then
+            return Keys (Left).Name_Lower < Keys (Right).Name_Lower;
          end if;
-         return Keys (Left).Name_Lower < Keys (Right).Name_Lower;
+         return Left < Right;
       end More_Used;
 
       package Usage_Sorting is new Index_Vectors.Generic_Sorting ("<" => More_Used);
@@ -44,7 +47,8 @@ package body Launcher.Model is
          Keys.Append
            (Sort_Key'
               (Count      =>
-                 Launcher.Usage.Count (M.Usage, To_String (M.Apps (I).Name)),
+                 Launcher.Usage.Count
+                   (M.Usage, To_String (M.Apps (I).Id), To_String (M.Apps (I).Name)),
                Name_Lower =>
                  To_Unbounded_String
                    (Ada.Characters.Handling.To_Lower (To_String (M.Apps (I).Name)))));
@@ -98,7 +102,7 @@ package body Launcher.Model is
       return Boolean
    is
    begin
-      App := (others => Null_Unbounded_String);
+      App := (others => <>);
       if Id in 1 .. Natural (M.Apps.Length) then
          App := M.Apps.Element (Id);
          return True;
@@ -108,7 +112,7 @@ package body Launcher.Model is
 
    procedure Record_Launch (M : in out State; App : Applications.Application) is
    begin
-      Launcher.Usage.Record_Launch (M.Usage, To_String (App.Name));
+      Launcher.Usage.Record_Launch (M.Usage, To_String (App.Id), To_String (App.Name));
    end Record_Launch;
 
 end Launcher.Model;

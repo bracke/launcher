@@ -42,6 +42,10 @@ procedure Launcher.Main is
       Have_Left_Press   : Boolean := False;
       Last_Left_Press   : Glfw.Seconds := 0.0;
       Pending_Scroll    : Integer := 0;
+      --  The part of the wheel's travel not yet a whole notch. A touchpad
+      --  reports a swipe as many small offsets (0.1, 0.3, ...); truncating each
+      --  to an Integer threw every one of them away, and the list never moved.
+      Scroll_Remainder  : Float := 0.0;
       Mouse_X           : Integer := -1;
       Mouse_Y           : Integer := -1;
       --  Set by every input callback; the main loop redraws only when set (or on
@@ -171,11 +175,18 @@ procedure Launcher.Main is
       Y      : Glfw.Input.Mouse.Scroll_Offset)
    is
       pragma Unreferenced (X);
+      Travel : constant Float := Object.Scroll_Remainder + Float (Y);
+      --  Whole notches, toward zero, so the remainder keeps the sign of the travel.
+      Notches : constant Integer := Integer (Float'Truncation (Travel));
    begin
       --  Accumulate whole wheel notches; the main loop turns them into selection
-      --  movement (wheel up moves the highlight up).
-      Object.Pending_Scroll := Object.Pending_Scroll + Integer (Y);
-      Object.Dirty := True;
+      --  movement (wheel up moves the highlight up). The fraction carries over to
+      --  the next event, so small touchpad deltas add up to a step.
+      Object.Scroll_Remainder := Travel - Float (Notches);
+      if Notches /= 0 then
+         Object.Pending_Scroll := Object.Pending_Scroll + Notches;
+         Object.Dirty := True;
+      end if;
    end Mouse_Scrolled;
 
    Handle       : constant Window_Access := new Launcher_Window;
@@ -283,16 +294,26 @@ procedure Launcher.Main is
          Results : constant Boolean :=
            Guikit.Vulkan.Readback_Region_Has_Ink (Vk, 0, FH / 4, FW, FH / 2, 0.001);
          --  Left icon gutter over the results: ink here means app icons drew.
+         --  Required only when some application has an icon to draw: a Start
+         --  Menu shortcut or an .app bundle names none, so on Windows and macOS
+         --  an empty gutter is the right picture.
          Icon_Ink : constant Float :=
            Guikit.Vulkan.Readback_Region_Ink_Fraction (Vk, 2, FH / 4, 48, FH / 2);
-         Icons_Ok : constant Boolean := Icon_Ink > 0.001;
-         --  Right edge over the results: ink means the scrollbar (all apps
-         --  overflow the visible rows, so a thumb must be present).
+         Have_Icon : constant Boolean := (for some Icon of M.Icons => Icon.Width > 0);
+         Icons_Ok : constant Boolean := Icon_Ink > 0.001 or else not Have_Icon;
+         --  Right edge over the results: ink means the scrollbar. Required when
+         --  the applications' rows are taller than the whole window, so they
+         --  must overflow the visible rows and a thumb must be present.
          Scroll_Ink : constant Float :=
            Guikit.Vulkan.Readback_Region_Ink_Fraction
              (Vk, (if FW > 14 then FW - 14 else 0), FH / 4, 14, FH / 2);
-         Scroll_Ok  : constant Boolean := Scroll_Ink > 0.0005;
+         Window_W, Window_H : Glfw.Size;
+         Overflows  : Boolean;
+         Scroll_Ok  : Boolean;
       begin
+         Glfw.Windows.Get_Size (As_Window (Win), Window_W, Window_H);
+         Overflows := Natural (M.Apps.Length) * Line_Height > Natural (Window_H);
+         Scroll_Ok := Scroll_Ink > 0.0005 or else not Overflows;
          Ada.Text_IO.Put_Line
            ("launcher smoke: overall=" & Boolean'Image (Overall)
             & " search=" & Boolean'Image (Search)
@@ -342,6 +363,10 @@ begin
       Primary : constant String := Launcher.Fonts.Primary;
    begin
       if Primary = "" then
+         --  Nothing to draw text with: say so, and fail, rather than vanish --
+         --  a --smoke run that exits 0 here would pass without rendering.
+         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "launcher: no usable font was found");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
          return;
       end if;
       Ignore_Ts :=
@@ -485,8 +510,10 @@ begin
             if Launcher.Model.Application_For
                  (M, Guikit.Command_Palette.Selected_Id (Palette), App)
             then
-               Launcher.Model.Record_Launch (M, App);
+               --  Counted only once it has started: a launch that failed is not
+               --  a use, and must not float the application up.
                if Launcher.Applications.Launch (App) then
+                  Launcher.Model.Record_Launch (M, App);
                   exit;
                end if;
             end if;

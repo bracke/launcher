@@ -1,6 +1,7 @@
 with Ada.Directories;
-with Ada.Environment_Variables;
 with Ada.Strings.Unbounded;
+
+with Hostkit.Fs;
 
 package body Launcher.Applications.Platform is
    use Ada.Strings.Unbounded;
@@ -14,23 +15,6 @@ package body Launcher.Applications.Platform is
       new String'("/Applications/Utilities"),
       new String'("/System/Applications"),
       new String'("/System/Applications/Utilities")];
-
-   --  Wrap a path for /bin/sh. Application paths routinely contain spaces -- "Visual
-   --  Studio Code.app" -- so an unquoted one would reach the shell as several
-   --  arguments and launch nothing.
-   function Shell_Quote (Value : String) return String is
-      Result : Unbounded_String := To_Unbounded_String ("'");
-   begin
-      for Character_Value of Value loop
-         if Character_Value = ''' then
-            Append (Result, "'\''");
-         else
-            Append (Result, Character_Value);
-         end if;
-      end loop;
-      Append (Result, "'");
-      return To_String (Result);
-   end Shell_Quote;
 
    procedure Scan (Root : String; Apps : in out Application_Vectors.Vector) is
       use Ada.Directories;
@@ -49,15 +33,20 @@ package body Launcher.Applications.Platform is
             Path : constant String := Full_Name (Item);
          begin
             if Name'Length > Suffix'Length then
-               Apps.Append
-                 (Application'
-                    (Name    =>
-                       To_Unbounded_String (Name (Name'First .. Name'Last - Suffix'Length)),
-                     --  "open" is how macOS launches a bundle: handing the shell the
-                     --  bundle directory itself would only try to execute a directory.
-                     Exec    => To_Unbounded_String ("open " & Shell_Quote (Path)),
-                     Comment => Null_Unbounded_String,
-                     Icon    => Null_Unbounded_String));
+               declare
+                  App : Application;
+               begin
+                  --  The bundle's path is what it is: two bundles can share a name.
+                  App.Id   := To_Unbounded_String (Path);
+                  App.Name := To_Unbounded_String (Name (Name'First .. Name'Last - Suffix'Length));
+                  --  "open" is how macOS launches a bundle: running the bundle
+                  --  directory itself would only try to execute a directory. The
+                  --  path is an argument of its own, so a space in it is just a space.
+                  App.Program := To_Unbounded_String ("open");
+                  App.Arguments.Append (To_Unbounded_String (Path));
+                  App.Exec := To_Unbounded_String ("open " & Path);
+                  Apps.Append (App);
+               end;
             end if;
          end;
       end loop;
@@ -69,10 +58,7 @@ package body Launcher.Applications.Platform is
 
    function Installed_Native return Application_Vectors.Vector is
       Apps : Application_Vectors.Vector;
-      Home : constant String :=
-        (if Ada.Environment_Variables.Exists ("HOME")
-         then Ada.Environment_Variables.Value ("HOME")
-         else "");
+      Home : constant String := Hostkit.Fs.Home_Directory;
    begin
       for Root of Roots loop
          Scan (Root.all, Apps);
@@ -88,11 +74,12 @@ package body Launcher.Applications.Platform is
          return Apps;
    end Installed_Native;
 
-   --  macOS launches a bundle through "open", which the shell runs perfectly well,
-   --  so there is nothing here the shell cannot already do.
-   function Launch_Native (App : Application) return Boolean is
+   --  macOS launches a bundle through "open", an ordinary program Launch starts
+   --  with the bundle as its argument, so there is nothing native to do here.
+   function Launch_Native (App : Application; Started : out Boolean) return Boolean is
       pragma Unreferenced (App);
    begin
+      Started := False;
       return False;
    end Launch_Native;
 

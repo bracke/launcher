@@ -13,9 +13,11 @@ package Launcher.Applications.Platform is
    --  where the XDG scan in the parent already covers it.
    function Installed_Native return Application_Vectors.Vector;
 
-   --  Start App the way this host starts its own applications, and say whether that
-   --  was done. False means the host has no such notion and the shell should be used
-   --  -- which is the answer everywhere except Windows.
+   --  Start App the way this host starts its own applications, when it is one
+   --  only the host can start. False means it is not -- it has a program and
+   --  arguments, which Launch starts itself -- and Started is then meaningless.
+   --  True means the host was asked, and Started is its answer: there is no
+   --  command line to fall back on, so a failure here is the launch failing.
    --
    --  Windows needs its own way in. A Start Menu entry is a .lnk whose path routinely
    --  contains spaces, so it would have to be quoted to survive a shell -- and a
@@ -23,6 +25,10 @@ package Launcher.Applications.Platform is
    --  runtime escapes the quotes on the way, and cmd then strips the ones it finds.
    --  ShellExecuteW takes the path itself, as a string, and no quoting is involved at
    --  any point.
-   function Launch_Native (App : Application) return Boolean;
+   --
+   --  @param App The application to start.
+   --  @param Started Whether the host started it, when the result is True.
+   --  @return True when App is the host's to start.
+   function Launch_Native (App : Application; Started : out Boolean) return Boolean;
 
 end Launcher.Applications.Platform;

@@ -31,13 +31,14 @@ package body Launcher_Suite.Model is
       M : Launcher.Model.State;
 
       procedure Add (Name, Exec, Comment : String) is
+         App : Launcher.Applications.Application;
       begin
-         M.Apps.Append
-           (Launcher.Applications.Application'
-              (Name    => To_Unbounded_String (Name),
-               Exec    => To_Unbounded_String (Exec),
-               Comment => To_Unbounded_String (Comment),
-               Icon    => Null_Unbounded_String));
+         App.Id      := To_Unbounded_String (Exec & ".desktop");
+         App.Name    := To_Unbounded_String (Name);
+         App.Exec    := To_Unbounded_String (Exec);
+         App.Program := To_Unbounded_String (Exec);
+         App.Comment := To_Unbounded_String (Comment);
+         M.Apps.Append (App);
       end Add;
    begin
       Add ("Firefox", "firefox", "Web Browser");

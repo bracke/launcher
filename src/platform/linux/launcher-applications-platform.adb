@@ -8,10 +8,11 @@ package body Launcher.Applications.Platform is
       return None;
    end Installed_Native;
 
-   --  Nothing native to start: the shell runs the Exec, as it always has.
-   function Launch_Native (App : Application) return Boolean is
+   --  Nothing native to start: Launch runs the entry's program, as it always has.
+   function Launch_Native (App : Application; Started : out Boolean) return Boolean is
       pragma Unreferenced (App);
    begin
+      Started := False;
       return False;
    end Launch_Native;
 
