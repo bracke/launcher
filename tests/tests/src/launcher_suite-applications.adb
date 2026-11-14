@@ -12,11 +12,11 @@ with Hostkit.Fs;
 
 with Launcher.Applications;
 
---  Exercises Launcher.Applications' reading of Desktop Entry files, as the
---  Desktop Entry Specification has it: string escapes decoded, Exec split by
---  its own quoting rules into an argument vector, field codes expanded,
---  TryExec and OnlyShowIn/NotShowIn honoured, Terminal=true wrapped, and
---  entries in subfolders found under their desktop-file ids.
+--  Exercises Launcher.Applications' use of the Desktop Entry files that
+--  Hostkit.Desktop_Entries reads (its own suite tests the reading): what is
+--  launchable, the program and arguments an entry starts, its working
+--  directory and comment, TryExec and OnlyShowIn honoured, Terminal=true
+--  wrapped, and entries in subfolders found under their desktop-file ids.
 package body Launcher_Suite.Applications is
 
    use AUnit.Assertions;
@@ -30,10 +30,6 @@ package body Launcher_Suite.Applications is
    overriding function Name (T : Applications_Test_Case) return AUnit.Message_String;
    overriding procedure Register_Tests (T : in out Applications_Test_Case);
 
-   procedure Test_Escapes (T : in out AUnit.Test_Cases.Test_Case'Class);
-   procedure Test_Split_Exec (T : in out AUnit.Test_Cases.Test_Case'Class);
-   procedure Test_Field_Codes (T : in out AUnit.Test_Cases.Test_Case'Class);
-   procedure Test_Shown_In (T : in out AUnit.Test_Cases.Test_Case'Class);
    procedure Test_Terminal_Prefix (T : in out AUnit.Test_Cases.Test_Case'Class);
    procedure Test_Desktop_Files (T : in out AUnit.Test_Cases.Test_Case'Class);
 
@@ -45,14 +41,6 @@ package body Launcher_Suite.Applications is
 
    overriding procedure Register_Tests (T : in out Applications_Test_Case) is
    begin
-      AUnit.Test_Cases.Registration.Register_Routine
-        (T, Test_Escapes'Access, "string escapes \s \n \t \r \\ are decoded, others kept");
-      AUnit.Test_Cases.Registration.Register_Routine
-        (T, Test_Split_Exec'Access, "Exec splits into arguments by its quoting rules");
-      AUnit.Test_Cases.Registration.Register_Routine
-        (T, Test_Field_Codes'Access, "field codes expand: files dropped, %i %c %k filled, %% kept");
-      AUnit.Test_Cases.Registration.Register_Routine
-        (T, Test_Shown_In'Access, "OnlyShowIn and NotShowIn are read against XDG_CURRENT_DESKTOP");
       AUnit.Test_Cases.Registration.Register_Routine
         (T, Test_Terminal_Prefix'Access, "a terminal is given a command its own way");
       AUnit.Test_Cases.Registration.Register_Routine
@@ -68,82 +56,6 @@ package body Launcher_Suite.Applications is
       end loop;
       return To_String (Result);
    end Image;
-
-   function Split (Exec : String) return String is
-      Items : Vector;
-   begin
-      if not Split_Exec (Exec, Items) then
-         return "<unbalanced>";
-      end if;
-      return Image (Items);
-   end Split;
-
-   procedure Test_Escapes (T : in out AUnit.Test_Cases.Test_Case'Class) is
-      pragma Unreferenced (T);
-   begin
-      Assert (Decode_Escapes ("plain") = "plain", "a value with no escapes is unchanged");
-      Assert (Decode_Escapes ("a\sb") = "a b", "\s is a space");
-      Assert (Decode_Escapes ("a\nb\tc\rd") = "a" & ASCII.LF & "b" & ASCII.HT & "c" & ASCII.CR & "d",
-              "\n \t \r are newline, tab and carriage return");
-      Assert (Decode_Escapes ("C:\\Tools") = "C:\Tools", "\\ is one backslash");
-      Assert (Decode_Escapes ("say \$HOME") = "say \$HOME",
-              "an Exec quoting escape is left for Split_Exec");
-      Assert (Decode_Escapes ("ends\") = "ends\", "a trailing backslash is kept");
-   end Test_Escapes;
-
-   procedure Test_Split_Exec (T : in out AUnit.Test_Cases.Test_Case'Class) is
-      pragma Unreferenced (T);
-   begin
-      Assert (Split ("firefox") = "[firefox]", "a bare program");
-      Assert (Split ("env  X=1   /usr/bin/foo") = "[env][X=1][/usr/bin/foo]",
-              "runs of spaces separate arguments");
-      Assert (Split ("""/opt/My App/run"" --flag") = "[/opt/My App/run][--flag]",
-              "a quoted argument keeps its spaces");
-      Assert (Split ("sh -c ""echo \""hi\"" \$HOME \`x\` \\""") = "[sh][-c][echo ""hi"" $HOME `x` \]",
-              "inside quotes \"" \$ \` \\ are escapes");
-      Assert (Split ("app """"") = "[app][]", "an empty quoted argument is an argument");
-      Assert (Split ("pre""fix""ed") = "[prefixed]", "quotes join with the text around them");
-      Assert (Split ("app ""open") = "<unbalanced>", "an open quote is refused");
-      Assert (Split ("") = "", "nothing is no arguments");
-   end Test_Split_Exec;
-
-   procedure Test_Field_Codes (T : in out AUnit.Test_Cases.Test_Case'Class) is
-      pragma Unreferenced (T);
-
-      function Expand (Exec : String; Icon : String := "") return String is
-         Items : Vector;
-         Ok    : constant Boolean := Split_Exec (Exec, Items);
-      begin
-         Assert (Ok, "the Exec splits");
-         return Image (Expand_Field_Codes (Items, "My App", Icon, "/usr/share/applications/my.desktop"));
-      end Expand;
-   begin
-      Assert (Expand ("gimp %f") = "[gimp]", "a lone %f disappears, leaving no empty argument");
-      Assert (Expand ("vlc --started-from-file %U") = "[vlc][--started-from-file]", "a lone %U disappears");
-      Assert (Expand ("app %F %u %d %D %n %N %v %m") = "[app]", "file and deprecated codes all go");
-      Assert (Expand ("app %i", "app-icon") = "[app][--icon][app-icon]", "%i is --icon and the Icon");
-      Assert (Expand ("app %i") = "[app]", "%i with no Icon is nothing");
-      Assert (Expand ("app --title=%c") = "[app][--title=My App]", "%c is the Name, inside an argument too");
-      Assert (Expand ("app %c") = "[app][My App]", "%c is one argument even with a space in it");
-      Assert (Expand ("app %k") = "[app][/usr/share/applications/my.desktop]", "%k is the file's path");
-      Assert (Expand ("show 100%%") = "[show][100%]", "%% is a single %");
-      Assert (Expand ("app %%d %f") = "[app][%d]", "a %% is kept while %f is dropped");
-   end Test_Field_Codes;
-
-   procedure Test_Shown_In (T : in out AUnit.Test_Cases.Test_Case'Class) is
-      pragma Unreferenced (T);
-   begin
-      Assert (Shown_In ("", "", ""), "no restriction shows everywhere");
-      Assert (Shown_In ("", "", "KDE"), "no restriction shows on any desktop");
-      Assert (Shown_In ("GNOME;KDE;", "", "KDE"), "OnlyShowIn naming the desktop shows it");
-      Assert (not Shown_In ("GNOME;", "", "KDE"), "OnlyShowIn naming another desktop hides it");
-      Assert (not Shown_In ("GNOME;", "", ""), "OnlyShowIn with no current desktop hides it");
-      Assert (Shown_In ("GNOME;", "", "ubuntu:GNOME"), "any of the current desktops may match");
-      Assert (not Shown_In ("", "KDE;", "KDE"), "NotShowIn naming the desktop hides it");
-      Assert (Shown_In ("", "KDE;", "GNOME"), "NotShowIn naming another desktop shows it");
-      Assert (not Shown_In ("", "XFCE;", "ubuntu:XFCE"), "any current desktop in NotShowIn hides it");
-      Assert (not Shown_In ("GNOME;", "", "gnome"), "desktop names compare with case");
-   end Test_Shown_In;
 
    procedure Test_Terminal_Prefix (T : in out AUnit.Test_Cases.Test_Case'Class) is
       pragma Unreferenced (T);
@@ -252,6 +164,7 @@ package body Launcher_Suite.Applications is
       Write ("link.desktop", "[Desktop Entry]" & LF & "Type=Link" & LF & "Name=Link" & LF & "URL=x" & LF);
       Write ("noexec.desktop", "[Desktop Entry]" & LF & "Type=Application" & LF & "Name=NoExec" & LF);
       Write ("unbalanced.desktop", Entry_Text ("Unbalanced", "app ""open"));
+      Write ("invalid-escape.desktop", Entry_Text ("Invalid Escape", "say \$HOME"));
       Write ("notes.txt", Entry_Text ("Text", "text"));
 
       Scan_Folder (Root, Apps);
@@ -298,6 +211,8 @@ package body Launcher_Suite.Applications is
          Assert (not Found, "a Hidden entry is not");
          Ignore := Find ("unbalanced.desktop", Found);
          Assert (not Found, "an entry whose Exec cannot be split is not");
+         Ignore := Find ("invalid-escape.desktop", Found);
+         Assert (not Found, "an entry with an invalid string escape is not");
       end;
 
       Clean_Up;
