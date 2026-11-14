@@ -41,21 +41,90 @@ jobs:
         with:
           path: launcher
 
-      # launcher pins guikit and textrender as path dependencies, and guikit in
-      # turn pins textrender, so both must exist as sibling checkouts.
-      - name: Check out sibling crates (transitive pin closure)
-        uses: bracke/project_tools/.github/actions/checkout-ada-siblings@main
+      # launcher pins guikit, textrender, hostkit, messages and i18n as path
+      # dependencies (guikit in turn pins textrender, messages pins i18n), and
+      # building i18n runs its pre-build regeneration -- download_tzdb
+      # (httpclient with ssllib/truststores, zlib on cryptolib, tarlib,
+      # awklib-on-regexp) and the CLDR import (project_tools) -- so all of
+      # those siblings are cloned next to the checkout. Each is cloned at a
+      # reviewed commit, as files' CI does, so a launcher revision always
+      # builds against the same dependency set instead of whatever each
+      # sibling's main is that day. BUMP THESE PINS when launcher needs a
+      # sibling change (the commit must be pushed before CI can fetch it), and
+      # add a sibling here when one gains a new path pin.
+      - name: Clone sibling crates at pinned revisions
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          owner="${{ github.repository_owner }}"
+          clone_at() {
+            name="$1"
+            revision="$2"
+            git init "$name"
+            git -C "$name" remote add origin "https://github.com/${owner}/${name}.git"
+            # A fetch dying halfway is the runner's network; try it three times.
+            for attempt in 1 2 3; do
+              if git -C "$name" fetch --depth 1 origin "$revision"; then
+                git -C "$name" checkout --detach FETCH_HEAD
+                return 0
+              fi
+              echo "::warning::fetching ${name} at ${revision} failed (attempt ${attempt})"
+              sleep 5
+            done
+            echo "::error::could not fetch ${owner}/${name} at ${revision}"
+            return 1
+          }
+          clone_at project_tools 5ed5f4dcfa10301345933d45e5f78ac0573d8cff
+          clone_at i18n 21d4d191f1d90a16248b71dfc54b4384502cf658
+          clone_at messages 1a3434a6796e1017cd10ede2a8a338c9cfdb0e5c
+          clone_at textrender 0a6721cb4239e581518c0d312bb7085e5b1ff402
+          clone_at guikit c42c04fd83e5d22c02f950354e0da6b0862623cc
+          clone_at hostkit 2301cbdee2b3c9f41168b34be098a6832f0bdeb4
+          clone_at zlib e2a66961dc1ebb9d90433160a43f78f52f8db9e1
+          clone_at cryptolib 2e5c415f65fd49c2a496c97813740fa9b83e02fa
+          clone_at regexp f660333a314f3c610bb255478ac86656e2fd0c4c
+          clone_at httpclient 4a6847ee9ba01888d945bb77274cbf5bb536cd13
+          clone_at ssllib b1637fa14a30ab60b7ef6800533a88aed5a549bf
+          clone_at truststores 90ce36a625ce8687685e0bf98ce279ee0f39c697
+          clone_at tarlib 1a6f22ae04e89a2e634d00f283527d337e3d3b1b
+          clone_at awklib 648bd7466e3b36112027c2116326b146224b2e21
+
+      # What project_tools' checkout-ada-siblings action did besides cloning
+      # each sibling's main, inlined as files inlines it: building i18n
+      # regenerates its data, which on a fresh checkout downloads cldr-json,
+      # the IANA tzdb and the Unicode data -- sources Windows runners reach
+      # only intermittently. The raw download trees are cached under a key
+      # that is the same on every OS, so a Linux or macOS download seeds the
+      # Windows job; the key changes with any version or downloader change.
+      - name: Compute an OS-stable i18n upstream cache key
+        id: cldr_key
+        if: hashFiles('i18n/cldr/upstream/source_manifest.txt') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          h=$(cat \
+                "$GITHUB_WORKSPACE/i18n/cldr/upstream/source_manifest.txt" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/download_cldr_upstream.adb" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/download_tzdb.adb" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/fetch_ucd.adb" \
+              | tr -d '\r' | git hash-object --stdin)
+          echo "key=i18n-upstream-$h" >> "$GITHUB_OUTPUT"
+      - name: Cache the i18n upstream download trees
+        if: steps.cldr_key.outputs.key != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          root: launcher
-
-
-      # launcher asks hostkit what the host does -- which shell, how it quotes, how it
-      # starts a shortcut -- so it is a path dependency like the others.
-
-      # launcher now localizes through the messages crate, which depends on i18n.
-      # Building i18n runs its pre-build regeneration -- download_tzdb (httpclient,
-      # zlib, tarlib, awklib-on-regexp) and the CLDR import (project_tools,
-      # cryptolib) -- so all of those siblings must be checked out.
+          path: |
+            i18n/cldr/upstream/cldr-json
+            i18n/cldr/upstream/tzdb
+            i18n/cldr/upstream/ucd
+            i18n/cldr/upstream/ucd16
+            i18n/cldr/upstream/uca
+            i18n/cldr/upstream/collation
+            i18n/cldr/upstream/transforms
+            i18n/cldr/upstream/transforms_test
+          key: ${{ steps.cldr_key.outputs.key }}
+          enableCrossOsArchive: true
 
       - name: Install system libraries (Linux)
         if: runner.os == 'Linux'

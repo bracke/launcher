@@ -1,7 +1,12 @@
 with Ada.Directories;
+with Ada.Exceptions;
 with Ada.Strings.Unbounded;
+with Ada.Text_IO;
 
 with Hostkit.Fs;
+
+with Launcher.Messages;
+with Launcher.Native_Entries;
 
 package body Launcher.Applications.Platform is
    use Ada.Strings.Unbounded;
@@ -10,29 +15,51 @@ package body Launcher.Applications.Platform is
 
    --  An application on macOS is a directory whose name ends in ".app", not a file
    --  describing one. The bundle is the application.
-   Roots : constant array (Positive range <>) of access constant String :=
-     [new String'("/Applications"),
-      new String'("/Applications/Utilities"),
-      new String'("/System/Applications"),
-      new String'("/System/Applications/Utilities")];
+   --
+   --  /Applications and ~/Applications are scanned with the plain folders in them
+   --  (Utilities, and the folders vendors install into: "Microsoft Office",
+   --  "Adobe ...") down to Launcher.Native_Entries.Max_Bundle_Folder_Depth -- never
+   --  into a bundle, whose insides are the application's own. The system's folders
+   --  hold bundles only at their top and in Utilities.
+   type Root is record
+      Path    : access constant String;
+      Recurse : Boolean;
+   end record;
 
-   procedure Scan (Root : String; Apps : in out Application_Vectors.Vector) is
+   Roots : constant array (Positive range <>) of Root :=
+     [(new String'("/Applications"), True),
+      (new String'("/System/Applications"), False),
+      (new String'("/System/Applications/Utilities"), False)];
+
+   --  Add the bundles in Folder, Depth folders below its scan's root, and -- when
+   --  Recurse -- those in the plain folders below it.
+   procedure Scan
+     (Folder  : String;
+      Recurse : Boolean;
+      Depth   : Natural;
+      Apps    : in out Application_Vectors.Vector)
+   is
       use Ada.Directories;
-      Search : Search_Type;
-      Item   : Directory_Entry_Type;
+      Search  : Search_Type;
+      Item    : Directory_Entry_Type;
+      Started : Boolean := False;
    begin
-      if not Exists (Root) or else Kind (Root) /= Directory then
+      if not Exists (Folder) or else Kind (Folder) /= Directory then
          return;
       end if;
 
-      Start_Search (Search, Root, "*" & Suffix, [Directory => True, others => False]);
+      Start_Search (Search, Folder, "", [Directory => True, others => False]);
+      Started := True;
       while More_Entries (Search) loop
          Get_Next_Entry (Search, Item);
          declare
             Name : constant String := Simple_Name (Item);
             Path : constant String := Full_Name (Item);
          begin
-            if Name'Length > Suffix'Length then
+            if Name = "." or else Name = ".." then
+               null;
+
+            elsif Launcher.Native_Entries.Is_Bundle (Name) then
                declare
                   App : Application;
                begin
@@ -47,25 +74,44 @@ package body Launcher.Applications.Platform is
                   App.Exec := To_Unbounded_String ("open " & Path);
                   Apps.Append (App);
                end;
+
+            elsif Recurse and then Launcher.Native_Entries.Descend_Into (Name, Depth + 1) then
+               Scan (Path, Recurse, Depth + 1, Apps);
             end if;
          end;
       end loop;
       End_Search (Search);
    exception
-      when others =>
-         null;
+      --  A folder that cannot be read (or vanishes mid-scan) holds nothing more
+      --  that can be listed: what was found before it stays, the search is ended
+      --  rather than left open, and the other folders are still scanned.
+      --  Standard error says which folder and why.
+      when Error : others =>
+         if Started then
+            begin
+               End_Search (Search);
+            exception
+               when others =>
+                  null;
+            end;
+         end if;
+         Ada.Text_IO.Put_Line
+           (Ada.Text_IO.Standard_Error,
+            Launcher.Messages.Text ("app.name") & ": " & Folder & ": "
+            & Launcher.Messages.Text ("diagnostic.applications_folder.unreadable")
+            & " (" & Ada.Exceptions.Exception_Name (Error) & ": " & Ada.Exceptions.Exception_Message (Error) & ")");
    end Scan;
 
    function Installed_Native return Application_Vectors.Vector is
       Apps : Application_Vectors.Vector;
       Home : constant String := Hostkit.Fs.Home_Directory;
    begin
-      for Root of Roots loop
-         Scan (Root.all, Apps);
+      for Item of Roots loop
+         Scan (Item.Path.all, Item.Recurse, 0, Apps);
       end loop;
 
       if Home /= "" then
-         Scan (Home & "/Applications", Apps);
+         Scan (Home & "/Applications", Recurse => True, Depth => 0, Apps => Apps);
       end if;
 
       return Apps;

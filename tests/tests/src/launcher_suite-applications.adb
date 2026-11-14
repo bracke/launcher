@@ -1,3 +1,4 @@
+with Hostkit.Host;
 with Ada.Directories;
 with Ada.Strings.Unbounded;
 with Ada.Text_IO;
@@ -163,7 +164,12 @@ package body Launcher_Suite.Applications is
       Assert (Prefix ("wezterm") = "[start][--]", "wezterm takes start --");
       Assert (Prefix ("kitty") = "", "kitty runs the command that follows it, so Terminal=true entries stay");
       Assert (Prefix ("tilix") = "[-e]", "tilix takes -e, so Terminal=true entries stay");
-      Assert (Prefix ("no-such-terminal") = "<unknown>", "an unknown terminal is refused");
+      --  An unlisted terminal is assumed to take -e, as most do, where a
+      --  terminal program is offered at all; a shell never stands in for one.
+      Assert (Prefix ("no-such-terminal") =
+                (if Hostkit.Host."=" (Hostkit.Host.Current, Hostkit.Host.Windows) then "<unknown>" else "[-e]"),
+              "an unknown terminal takes -e on a POSIX host and is refused on Windows");
+      Assert (Prefix ("bash") = "<unknown>", "a shell is not a terminal");
    end Test_Terminal_Prefix;
 
    procedure Test_Desktop_Files (T : in out AUnit.Test_Cases.Test_Case'Class) is

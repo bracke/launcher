@@ -23,6 +23,16 @@ All notable changes to the launcher are recorded here. The format follows
   atomically, and a launch is counted only once it has started.
 - A Start Menu shortcut that Windows will not open is reported as a failed
   launch, rather than its path being handed unquoted to a shell.
+- Windows: Start Menu shortcuts are matched without case (`NOTEPAD.LNK` was
+  missed), and Internet shortcuts (`.url`, opened by their URL -- Steam games
+  among them) and ClickOnce references (`.appref-ms`) are listed too. A Start
+  Menu folder that cannot be read ends its directory search and is reported on
+  standard error; the rest of the menu is still read. Microsoft Store
+  (UWP/MSIX) applications are still not listed: they live only in the shell's
+  COM-only AppsFolder (see README.md, "Windows and macOS").
+- macOS: the plain folders under `/Applications` and `~/Applications`
+  (`Utilities`, vendors' folders) are scanned for bundles, three folders deep,
+  never into a bundle; an unreadable folder is reported on standard error.
 - The catalogue renders in the host's own language on Windows and macOS when
   no `LANG`/`LC_*` is set (shared `Messages.Program_Catalog`).
 - Touchpad scrolling: fractional wheel offsets accumulate into whole steps

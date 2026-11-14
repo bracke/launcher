@@ -22,7 +22,8 @@ package Launcher.Applications is
       Id        : UString;
       Name      : UString;
       --  The command as the entry wrote it, for showing (--list), not running.
-      --  For a Start Menu shortcut, the shortcut's own path, which the host opens.
+      --  For a Start Menu shortcut, the shortcut's own path, which the host opens
+      --  (for an Internet shortcut, the URL it names).
       Exec      : UString;
       --  What runs: the program (a name looked up on the search path, or a
       --  path) and its arguments, field codes already expanded. Program is ""

@@ -5,8 +5,11 @@
 --  the other two, which is why the launcher came up empty there -- not because those
 --  systems have no applications, but because nobody had asked them.
 --
---  Each host is asked in its own terms: the Start Menu on Windows, the application
---  bundles under /Applications on macOS.
+--  Each host is asked in its own terms: the Start Menu on Windows (shell links,
+--  Internet shortcuts and ClickOnce references; not Store applications, which only
+--  the shell's COM AppsFolder lists), the application bundles under /Applications
+--  and the plain folders in it on macOS. The host-independent rules are in
+--  Launcher.Native_Entries.
 package Launcher.Applications.Platform is
 
    --  The applications this host installs, in its own native form. Empty on Linux,

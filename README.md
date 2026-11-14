@@ -24,12 +24,36 @@ The app itself (this crate) supplies only the domain: finding the installed
 applications (`Launcher.Applications`: freedesktop Desktop Entry files read per
 the specification -- escapes, `Exec` quoting and field codes, `TryExec`,
 `OnlyShowIn`/`NotShowIn`, `Terminal`, `Path`, subfolder ids -- plus the Start
-Menu on Windows and the `.app` bundles on macOS, each started by argument vector,
-never through a shell), resolving + decoding their icons
+Menu on Windows and the `.app` bundles on macOS (see "Windows and macOS" below),
+each started by argument vector or by the host, never through a shell), resolving +
+decoding their icons
 (`Launcher.Icons`, via gdk_pixbuf), the model + state (`Launcher.Model`),
 launch counts that float your most-used applications up (`Launcher.Usage`),
 font discovery (`Launcher.Fonts`), the message catalogue (`Launcher.Messages`),
 and the window + main loop (`Launcher.Main`).
+
+## Windows and macOS
+
+On **Windows** the launcher lists what the per-user and the machine-wide Start
+Menu folders hold, subfolders included, the per-user entry winning at the same
+place: shell links (`.lnk`), Internet shortcuts (`.url` -- the URL of their
+`[InternetShortcut]` section, which is how Steam and other stores install
+games) and ClickOnce references (`.appref-ms`). Suffixes are matched without
+case (`NOTEPAD.LNK` too). Each is started by the shell (`ShellExecuteW`): the
+shortcut file itself, or the Internet shortcut's URL.
+
+**Not listed on Windows: Microsoft Store (UWP/MSIX) applications.** They have
+no file in the Start Menu folders. The shell lists them only in its virtual
+`shell:AppsFolder`, which can be read through the shell's COM interfaces
+(`IShellItem`/`IShellFolder`) or PowerShell's `Get-StartApps`; the launcher
+uses neither, so a Store-only application (Calculator, Photos, and the like)
+does not appear. This is a known gap, not a choice.
+
+On **macOS** the launcher lists the application bundles (`.app`) in
+`/Applications` and `~/Applications` -- and in the plain folders below them,
+such as `Utilities` or a vendor's own folder, down to three folders deep, never
+into a bundle or other package -- and in `/System/Applications` and its
+`Utilities`. Each is started with `open`.
 
 ## Build & run
 

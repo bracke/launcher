@@ -1,6 +1,7 @@
 with Launcher_Suite.Applications;
 with Launcher_Suite.Fonts;
 with Launcher_Suite.Model;
+with Launcher_Suite.Native_Entries;
 with Launcher_Suite.Usage;
 
 package body Launcher_Suite is
@@ -10,6 +11,7 @@ package body Launcher_Suite is
    begin
       Result.Add_Test (Launcher_Suite.Applications.Suite);
       Result.Add_Test (Launcher_Suite.Model.Suite);
+      Result.Add_Test (Launcher_Suite.Native_Entries.Suite);
       Result.Add_Test (Launcher_Suite.Usage.Suite);
       Result.Add_Test (Launcher_Suite.Fonts.Suite);
       return Result;
