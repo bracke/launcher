@@ -135,7 +135,8 @@ package Launcher.Applications is
 
    --  The arguments that put a command line after a terminal's own, so the
    --  terminal runs it: "-e" for xterm and those that copy it, "--" for the
-   --  GNOME family, and so on.
+   --  GNOME family, nothing for kitty, and so on -- the host's own table,
+   --  Hostkit.Process.Terminal_Program_Prefix.
    --
    --  @param Terminal The terminal program, by name or path (Hostkit.Process.Default_Terminal).
    --  @param Prefix The arguments that go between the terminal and the command.

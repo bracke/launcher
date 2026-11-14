@@ -161,6 +161,8 @@ package body Launcher_Suite.Applications is
       Assert (Prefix ("gnome-terminal") = "[--]", "gnome-terminal takes --");
       Assert (Prefix ("xfce4-terminal") = "[-x]", "xfce4-terminal takes -x");
       Assert (Prefix ("wezterm") = "[start][--]", "wezterm takes start --");
+      Assert (Prefix ("kitty") = "", "kitty runs the command that follows it, so Terminal=true entries stay");
+      Assert (Prefix ("tilix") = "[-e]", "tilix takes -e, so Terminal=true entries stay");
       Assert (Prefix ("no-such-terminal") = "<unknown>", "an unknown terminal is refused");
    end Test_Terminal_Prefix;
 

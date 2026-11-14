@@ -1,4 +1,3 @@
-with Ada.Characters.Handling;
 with Ada.Containers.Indefinite_Hashed_Sets;
 with Ada.Directories;
 with Ada.Strings.Fixed;
@@ -204,55 +203,13 @@ package body Launcher.Applications is
       return Wanted;
    end Shown_In;
 
+   --  The table is the host's, shared with every program that runs a
+   --  command in a terminal.
    function Terminal_Prefix
      (Terminal : String;
       Prefix   : out Hostkit.String_Vectors.Vector)
       return Boolean
-   is
-      --  The terminal's own name: no folder, no ".exe", any case.
-      function Simple (Path : String) return String is
-         First : Integer := Path'First;
-         Last  : Integer := Path'Last;
-      begin
-         for I in Path'Range loop
-            if Hostkit.Fs.Is_Separator (Path (I)) then
-               First := I + 1;
-            end if;
-         end loop;
-         if Last - First + 1 > 4
-           and then Ada.Characters.Handling.To_Lower (Path (Last - 3 .. Last)) = ".exe"
-         then
-            Last := Last - 4;
-         end if;
-         return Ada.Characters.Handling.To_Lower (Path (First .. Last));
-      end Simple;
-
-      Name : constant String := Simple (Terminal);
-
-      procedure Add (Item : String) is
-      begin
-         Prefix.Append (To_Unbounded_String (Item));
-      end Add;
-   begin
-      Prefix.Clear;
-      if Name in "x-terminal-emulator" | "xterm" | "uxterm" | "konsole" | "alacritty"
-        | "urxvt" | "rxvt" | "ghostty"
-      then
-         --  xterm's "-e program args...", which the Debian alternative must accept.
-         Add ("-e");
-      elsif Name in "xfce4-terminal" | "terminator" then
-         --  Their "-e" takes one string for a shell; "-x" takes the rest as argv.
-         Add ("-x");
-      elsif Name in "gnome-terminal" | "kgx" | "ptyxis" | "foot" then
-         Add ("--");
-      elsif Name = "wezterm" then
-         Add ("start");
-         Add ("--");
-      else
-         return False;
-      end if;
-      return True;
-   end Terminal_Prefix;
+      renames Hostkit.Process.Terminal_Program_Prefix;
 
    --  The terminal Terminal=true entries run in and the arguments before the
    --  command, asked of the host once per scan (it looks the candidates up).

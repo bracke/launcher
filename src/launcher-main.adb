@@ -9,6 +9,7 @@ with Glfw.Windows;
 
 with Guikit.Command_Palette;
 with Guikit.Draw;
+with Guikit.Input.Pending;
 with Guikit.Layout;
 with Guikit.Text;
 with Guikit.Utf8;
@@ -24,170 +25,18 @@ procedure Launcher.Main is
 
    Line_Height : constant Positive := 26;
 
-   --  GLFW window subclass: the input callbacks stash events into these pending
-   --  fields, which the main loop drains once per frame.
-   type Launcher_Window is new Glfw.Windows.Window with record
-      Pending_Text      : Unbounded_String := Null_Unbounded_String;
-      Pending_Escape    : Boolean := False;
-      Pending_Enter     : Boolean := False;
-      Pending_Up        : Natural := 0;
-      Pending_Down      : Natural := 0;
-      Pending_Home      : Boolean := False;
-      Pending_End       : Boolean := False;
-      Pending_Backspace : Natural := 0;
-      Pending_Click     : Boolean := False;
-      --  Time of the last accepted left press, for bounce rejection: a failing
-      --  mouse switch (or an un-debounced compositor) can emit a spurious second
-      --  press microseconds after the real one, which would activate twice.
-      Have_Left_Press   : Boolean := False;
-      Last_Left_Press   : Glfw.Seconds := 0.0;
-      Pending_Scroll    : Integer := 0;
-      --  The part of the wheel's travel not yet a whole notch. A touchpad
-      --  reports a swipe as many small offsets (0.1, 0.3, ...); truncating each
-      --  to an Integer threw every one of them away, and the list never moved.
-      Scroll_Remainder  : Float := 0.0;
-      Mouse_X           : Integer := -1;
-      Mouse_Y           : Integer := -1;
-      --  Set by every input callback; the main loop redraws only when set (or on
-      --  resize), so an idle launcher stops re-presenting the same frame and
-      --  waking ~20 times a second. Starts True so the first frame draws.
-      Dirty             : Boolean := True;
-   end record;
-
-   overriding procedure Character_Entered
-     (Object : not null access Launcher_Window;
-      Char   : Wide_Wide_Character);
-   overriding procedure Key_Changed
-     (Object   : not null access Launcher_Window;
-      Key      : Glfw.Input.Keys.Key;
-      Scancode : Glfw.Input.Keys.Scancode;
-      Action   : Glfw.Input.Keys.Action;
-      Mods     : Glfw.Input.Keys.Modifiers);
-   overriding procedure Mouse_Button_Changed
-     (Object : not null access Launcher_Window;
-      Button : Glfw.Input.Mouse.Button;
-      State  : Glfw.Input.Button_State;
-      Mods   : Glfw.Input.Keys.Modifiers);
-   overriding procedure Mouse_Position_Changed
-     (Object : not null access Launcher_Window;
-      X      : Glfw.Input.Mouse.Coordinate;
-      Y      : Glfw.Input.Mouse.Coordinate);
-   overriding procedure Mouse_Scrolled
-     (Object : not null access Launcher_Window;
-      X      : Glfw.Input.Mouse.Scroll_Offset;
-      Y      : Glfw.Input.Mouse.Scroll_Offset);
+   --  The window keeps its input in one ordered queue (Guikit.Input.Pending),
+   --  which the main loop drains once per frame; its callbacks guard against
+   --  an exception unwinding into GLFW's C code, and drop a left press that
+   --  bounces. Its dirty flag starts set so the first frame draws, and the
+   --  loop redraws only when it is set (or on resize), so an idle launcher
+   --  stops re-presenting the same frame.
+   type Launcher_Window is new Guikit.Input.Pending.Pending_Window with null record;
 
    type Window_Access is access all Launcher_Window;
 
    function As_Window (Handle : Window_Access) return Glfw.Windows.Window_Reference is
      (Glfw.Windows.Window_Reference (Handle));
-
-   --  Encode one input codepoint as UTF-8, dropping control characters.
-   overriding procedure Character_Entered
-     (Object : not null access Launcher_Window;
-      Char   : Wide_Wide_Character)
-   is
-      Code : constant Natural := Wide_Wide_Character'Pos (Char);
-   begin
-      --  Ignore control characters; Guikit.Utf8.Encode handles the UTF-8 bytes.
-      if Code >= Character'Pos (' ') then
-         Append (Object.Pending_Text, Guikit.Utf8.Encode (Code));
-         Object.Dirty := True;
-      end if;
-   end Character_Entered;
-
-   overriding procedure Key_Changed
-     (Object   : not null access Launcher_Window;
-      Key      : Glfw.Input.Keys.Key;
-      Scancode : Glfw.Input.Keys.Scancode;
-      Action   : Glfw.Input.Keys.Action;
-      Mods     : Glfw.Input.Keys.Modifiers)
-   is
-      use type Glfw.Input.Keys.Action;
-      use type Glfw.Input.Keys.Key;
-      pragma Unreferenced (Scancode, Mods);
-   begin
-      if Action = Glfw.Input.Keys.Release then
-         return;
-      end if;
-      Object.Dirty := True;
-      if Key = Glfw.Input.Keys.Escape then
-         Object.Pending_Escape := True;
-      elsif Key = Glfw.Input.Keys.Enter or else Key = Glfw.Input.Keys.Numpad_Enter then
-         Object.Pending_Enter := True;
-      elsif Key = Glfw.Input.Keys.Up then
-         Object.Pending_Up := Object.Pending_Up + 1;
-      elsif Key = Glfw.Input.Keys.Down then
-         Object.Pending_Down := Object.Pending_Down + 1;
-      elsif Key = Glfw.Input.Keys.Home then
-         Object.Pending_Home := True;
-      elsif Key = Glfw.Input.Keys.Key_End then
-         Object.Pending_End := True;
-      elsif Key = Glfw.Input.Keys.Backspace then
-         Object.Pending_Backspace := Object.Pending_Backspace + 1;
-      end if;
-   end Key_Changed;
-
-   overriding procedure Mouse_Button_Changed
-     (Object : not null access Launcher_Window;
-      Button : Glfw.Input.Mouse.Button;
-      State  : Glfw.Input.Button_State;
-      Mods   : Glfw.Input.Keys.Modifiers)
-   is
-      use type Glfw.Input.Mouse.Button;
-      use type Glfw.Input.Button_State;
-      pragma Unreferenced (Mods);
-   begin
-      if Button = Glfw.Input.Mouse.Left_Button and then State = Glfw.Input.Pressed then
-         declare
-            use type Glfw.Seconds;
-            Now : constant Glfw.Seconds := Glfw.Time;
-         begin
-            --  Drop a press that follows the previous accepted one too closely to
-            --  be a real click -- a switch bounce that would otherwise fire twice.
-            if Object.Have_Left_Press
-              and then Now - Object.Last_Left_Press < 0.040
-            then
-               return;
-            end if;
-            Object.Last_Left_Press := Now;
-            Object.Have_Left_Press := True;
-         end;
-
-         Object.Pending_Click := True;
-         Object.Dirty := True;
-      end if;
-   end Mouse_Button_Changed;
-
-   overriding procedure Mouse_Position_Changed
-     (Object : not null access Launcher_Window;
-      X      : Glfw.Input.Mouse.Coordinate;
-      Y      : Glfw.Input.Mouse.Coordinate) is
-   begin
-      Object.Mouse_X := Integer (X);
-      Object.Mouse_Y := Integer (Y);
-      Object.Dirty := True;
-   end Mouse_Position_Changed;
-
-   overriding procedure Mouse_Scrolled
-     (Object : not null access Launcher_Window;
-      X      : Glfw.Input.Mouse.Scroll_Offset;
-      Y      : Glfw.Input.Mouse.Scroll_Offset)
-   is
-      pragma Unreferenced (X);
-      Travel : constant Float := Object.Scroll_Remainder + Float (Y);
-      --  Whole notches, toward zero, so the remainder keeps the sign of the travel.
-      Notches : constant Integer := Integer (Float'Truncation (Travel));
-   begin
-      --  Accumulate whole wheel notches; the main loop turns them into selection
-      --  movement (wheel up moves the highlight up). The fraction carries over to
-      --  the next event, so small touchpad deltas add up to a step.
-      Object.Scroll_Remainder := Travel - Float (Notches);
-      if Notches /= 0 then
-         Object.Pending_Scroll := Object.Pending_Scroll + Notches;
-         Object.Dirty := True;
-      end if;
-   end Mouse_Scrolled;
 
    Handle       : constant Window_Access := new Launcher_Window;
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
@@ -210,6 +59,14 @@ procedure Launcher.Main is
    --  typing refills it, and a truly idle launcher still drops to no presenting.
    Present_Grace_Frames : constant := 24;
    Present_Grace : Natural := 0;
+
+   --  What the input asked for, carried from draining it to acting on it
+   --  after the frame is drawn.
+   Pending_Escape : Boolean := False;
+   Pending_Enter  : Boolean := False;
+   Pending_Click  : Boolean := False;
+   Click_X        : Integer := -1;
+   Click_Y        : Integer := -1;
 
    --  Render one frame: bring the swapchain up, build and submit the palette,
    --  and present. The component owns the row layout (for click hit-testing).
@@ -294,9 +151,10 @@ procedure Launcher.Main is
          Results : constant Boolean :=
            Guikit.Vulkan.Readback_Region_Has_Ink (Vk, 0, FH / 4, FW, FH / 2, 0.001);
          --  Left icon gutter over the results: ink here means app icons drew.
-         --  Required only when some application has an icon to draw: a Start
-         --  Menu shortcut or an .app bundle names none, so on Windows and macOS
-         --  an empty gutter is the right picture.
+         --  Required only when some application has an icon to draw: launcher
+         --  reads no icon from a Start Menu shortcut or an .app bundle, so on
+         --  Windows and macOS an empty gutter is the right picture. Have_Icon is
+         --  printed, so CI can require it where its fixture gives icons.
          Icon_Ink : constant Float :=
            Guikit.Vulkan.Readback_Region_Ink_Fraction (Vk, 2, FH / 4, 48, FH / 2);
          Have_Icon : constant Boolean := (for some Icon of M.Icons => Icon.Width > 0);
@@ -319,6 +177,9 @@ procedure Launcher.Main is
             & " search=" & Boolean'Image (Search)
             & " results=" & Boolean'Image (Results)
             & " icons=" & Boolean'Image (Icons_Ok)
+            --  Whether any application had an icon to draw: without one the
+            --  icon check passes vacuously, and CI says where it must not.
+            & " have_icon=" & Boolean'Image (Have_Icon)
             & " scrollbar=" & Boolean'Image (Scroll_Ok)
             & " (gutter" & Float'Image (Icon_Ink)
             & " scroll" & Float'Image (Scroll_Ink) & ")");
@@ -437,36 +298,51 @@ begin
       Guikit.Vulkan.Wait_For_Events (0.016);
       Guikit.Vulkan.Poll_Events;
 
-      if Length (Handle.Pending_Text) > 0 then
-         Guikit.Command_Palette.Insert (Palette, To_String (Handle.Pending_Text));
-         Handle.Pending_Text := Null_Unbounded_String;
-      end if;
-      for I in 1 .. Handle.Pending_Backspace loop
-         Guikit.Command_Palette.Backspace (Palette);
-      end loop;
-      Handle.Pending_Backspace := 0;
-      for I in 1 .. Handle.Pending_Up loop
-         Guikit.Command_Palette.Move_Selection (Palette, -1);
-      end loop;
-      Handle.Pending_Up := 0;
-      for I in 1 .. Handle.Pending_Down loop
-         Guikit.Command_Palette.Move_Selection (Palette, 1);
-      end loop;
-      Handle.Pending_Down := 0;
-      if Handle.Pending_Home then
-         Guikit.Command_Palette.Select_First (Palette);
-         Handle.Pending_Home := False;
-      end if;
-      if Handle.Pending_End then
-         Guikit.Command_Palette.Select_Last (Palette);
-         Handle.Pending_End := False;
-      end if;
-      --  Wheel: scroll up moves the selection up, down moves it down.
-      if Handle.Pending_Scroll /= 0 then
-         Guikit.Command_Palette.Move_Selection (Palette, -Handle.Pending_Scroll);
-         Handle.Pending_Scroll := 0;
-      end if;
-      exit when Handle.Pending_Escape;
+      --  The input in the order it came: a Backspace typed between two
+      --  letters deletes the first of them, not the second.
+      declare
+         use type Glfw.Input.Keys.Key;
+         use type Glfw.Input.Mouse.Button;
+         Item  : Guikit.Input.Pending.Event;
+         Taken : Boolean;
+      begin
+         loop
+            Handle.Take (Item, Taken);
+            exit when not Taken;
+            case Item.Kind is
+               when Guikit.Input.Pending.Character_Input =>
+                  Guikit.Command_Palette.Insert (Palette, Guikit.Utf8.Encode (Item.Code));
+               when Guikit.Input.Pending.Key_Input =>
+                  if Item.Key = Glfw.Input.Keys.Escape then
+                     Pending_Escape := True;
+                  elsif Item.Key = Glfw.Input.Keys.Enter or else Item.Key = Glfw.Input.Keys.Numpad_Enter then
+                     Pending_Enter := True;
+                  elsif Item.Key = Glfw.Input.Keys.Up then
+                     Guikit.Command_Palette.Move_Selection (Palette, -1);
+                  elsif Item.Key = Glfw.Input.Keys.Down then
+                     Guikit.Command_Palette.Move_Selection (Palette, 1);
+                  elsif Item.Key = Glfw.Input.Keys.Home then
+                     Guikit.Command_Palette.Select_First (Palette);
+                  elsif Item.Key = Glfw.Input.Keys.Key_End then
+                     Guikit.Command_Palette.Select_Last (Palette);
+                  elsif Item.Key = Glfw.Input.Keys.Backspace then
+                     Guikit.Command_Palette.Backspace (Palette);
+                  end if;
+               when Guikit.Input.Pending.Button_Input =>
+                  --  Hit-tested after the frame is drawn, against its rows,
+                  --  where the button went down.
+                  if Item.Button = Glfw.Input.Mouse.Left_Button and then Item.Pressed then
+                     Pending_Click := True;
+                     Click_X := Integer (Glfw.Input.Mouse.Coordinate'Truncation (Item.X));
+                     Click_Y := Integer (Glfw.Input.Mouse.Coordinate'Truncation (Item.Y));
+                  end if;
+               when Guikit.Input.Pending.Scroll_Input =>
+                  --  Wheel: scroll up moves the selection up, down moves it down.
+                  Guikit.Command_Palette.Move_Selection (Palette, -Item.Notches);
+            end case;
+         end loop;
+      end;
+      exit when Pending_Escape;
 
       declare
          App : Launcher.Applications.Application;
@@ -478,7 +354,7 @@ begin
          if Natural (Frame_W) /= Natural (Last_Frame_W)
            or else Natural (Frame_H) /= Natural (Last_Frame_H)
          then
-            Handle.Dirty := True;
+            Handle.Mark_Dirty;
             Last_Frame_W := Frame_W;
             Last_Frame_H := Frame_H;
          end if;
@@ -489,7 +365,7 @@ begin
          --  keeps the (separate) smoke loop presenting.
          if Handle.Dirty then
             Present_Grace := Present_Grace_Frames;
-            Handle.Dirty := False;
+            Handle.Clear_Dirty;
          end if;
          if Present_Grace > 0 or else Guikit.Vulkan.Readback_Enabled (Vulkan) then
             Draw_Frame (Handle, Vulkan, Text, Palette);
@@ -498,15 +374,15 @@ begin
             end if;
          end if;
 
-         if Handle.Pending_Click then
-            Handle.Pending_Click := False;
-            if Guikit.Command_Palette.Click (Palette, Handle.Mouse_X, Handle.Mouse_Y) then
-               Handle.Pending_Enter := True;
+         if Pending_Click then
+            Pending_Click := False;
+            if Guikit.Command_Palette.Click (Palette, Click_X, Click_Y) then
+               Pending_Enter := True;
             end if;
          end if;
 
-         if Handle.Pending_Enter then
-            Handle.Pending_Enter := False;
+         if Pending_Enter then
+            Pending_Enter := False;
             if Launcher.Model.Application_For
                  (M, Guikit.Command_Palette.Selected_Id (Palette), App)
             then

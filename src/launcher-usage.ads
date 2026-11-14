@@ -9,7 +9,9 @@ private with Ada.Strings.Hash;
 --  name -- two entries can both be called "Terminal", and counting them
 --  together floated the one never launched. The counts used to be kept by
 --  name; a name-keyed count read from such a file still answers for an
---  application that has no count of its own yet, and is kept until then.
+--  application that has no count of its own yet, until the first application
+--  of that name is launched: that one takes the count over, and it is removed,
+--  so the others of the same name start from nothing.
 --
 --  Stored as a small tab-separated file in the host's per-user state place:
 --  $XDG_STATE_HOME/launcher when that is set, else ~/.local/state/launcher on

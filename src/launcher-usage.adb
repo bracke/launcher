@@ -99,6 +99,9 @@ package body Launcher.Usage is
 
    function Count (S : Store; Id : String; Name : String) return Natural is
    begin
+      --  An old name count answers only until it is migrated: the first
+      --  launch by id of an application with that name takes it (see
+      --  Record_Launch), and after that it is gone.
       if S.Counts.Contains (Id) then
          return S.Counts.Element (Id);
       elsif S.Legacy.Contains (Name) then
@@ -162,8 +165,14 @@ package body Launcher.Usage is
       if Id = "" then
          return;
       end if;
-      --  The first launch counted by id carries on from the old name count.
+      --  The first launch counted by id carries on from the old name count,
+      --  and takes it: the name count is migrated to this id alone, so
+      --  another application with the same name starts from nothing rather
+      --  than inheriting it as well.
       Next := Count (S, Id, Name) + 1;
+      if not S.Counts.Contains (Id) and then S.Legacy.Contains (Name) then
+         S.Legacy.Delete (Name);
+      end if;
       S.Counts.Include (Id, Next);
       Save (S);
    end Record_Launch;

@@ -39,7 +39,7 @@ package body Launcher_Suite.Usage is
          "launch counts increment by id, default to zero, and persist across a reload");
       AUnit.Test_Cases.Registration.Register_Routine
         (T, Test_Name_Counts_Carry_Over'Access,
-         "a count from the old name-keyed file answers until the id has its own");
+         "a count from the old name-keyed file answers until one id of that name takes it over");
    end Register_Tests;
 
    --  Run Body with XDG_STATE_HOME pointing at a fresh temporary folder, then
@@ -135,6 +135,31 @@ package body Launcher_Suite.Usage is
                  "the id count is what was saved");
          Assert (Launcher.Usage.Count (Reloaded, "org.kde.konsole.desktop", "Terminal") = 5,
                  "name counts not yet carried over are kept");
+      end;
+
+      --  Two applications called "Terminal": the first launched takes the
+      --  name count over, and the other starts at zero -- now and after a
+      --  reload, since the name count is gone from the file.
+      declare
+         S : Launcher.Usage.Store := Launcher.Usage.Load;
+      begin
+         Launcher.Usage.Record_Launch (S, "org.gnome.Terminal.desktop", "Terminal");
+         Assert (Launcher.Usage.Count (S, "org.gnome.Terminal.desktop", "Terminal") = 6,
+                 "the first of two same-named applications carries on from the name count");
+         Assert (Launcher.Usage.Count (S, "org.kde.konsole.desktop", "Terminal") = 0,
+                 "the other application of the same name does not inherit the name count");
+         Launcher.Usage.Record_Launch (S, "org.gnome.Terminal.desktop", "Terminal");
+         Assert (Launcher.Usage.Count (S, "org.gnome.Terminal.desktop", "Terminal") = 7,
+                 "later launches count on from the migrated count");
+      end;
+
+      declare
+         Reloaded : constant Launcher.Usage.Store := Launcher.Usage.Load;
+      begin
+         Assert (Launcher.Usage.Count (Reloaded, "org.kde.konsole.desktop", "Terminal") = 0,
+                 "the migrated name count is not saved again for the other application");
+         Assert (Launcher.Usage.Count (Reloaded, "org.gnome.Terminal.desktop", "Terminal") = 7,
+                 "the migrated count is saved under its id");
       end;
    end Name_Counts_Carry_Over;
 

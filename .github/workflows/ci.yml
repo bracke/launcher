@@ -22,10 +22,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # An x86_64 macOS image is required: gnat_native=15.2.1 ships no
-        # aarch64-darwin binary, so macos-latest (arm64) cannot resolve the pin.
-        # macos-15-intel is the last x86_64 image Actions will offer.
-        os: [ubuntu-latest, macos-15-intel, windows-latest]
+        # macos-15-intel is the x86_64 macOS job, on the pinned toolchain; it is
+        # the last x86_64 image Actions will offer.
+        #
+        # macos-latest is Apple silicon. gnat_native=15.2.1 ships no
+        # aarch64-darwin binary, so -- as files does -- that one job builds with
+        # 15.3.1, the nearest release that has one, and rewrites the =15.2.1
+        # pins in its own checkout to match. Every other job, and every
+        # manifest in the repositories, stays on 15.2.1.
+        os: [ubuntu-latest, macos-15-intel, windows-latest, macos-latest]
+        include:
+          - toolchain: gnat_native=15.2.1
+          - os: macos-latest
+            toolchain: gnat_native=15.3.1
     steps:
       - name: Check out launcher
         uses: actions/checkout@v7
@@ -164,7 +173,28 @@ jobs:
         # older index cannot resolve it.
         uses: alire-project/setup-alire@v6
         with:
-          toolchain: gnat_native=15.2.1 gprbuild
+          toolchain: ${{ matrix.toolchain }} gprbuild
+
+      - name: Pin the Apple silicon toolchain in this checkout (macos-latest)
+        # See the matrix: no 15.2.1 exists for aarch64-darwin. Every crate in
+        # the closure pins gnat_native =15.2.1, so the solve would fail on the
+        # toolchain this job can have; this job's copies pin 15.3.1 instead.
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          find . -name alire.toml -not -path "*/alire/*" -print0 |
+            xargs -0 grep -l 'gnat_native = "=15.2.1"' |
+            while read -r manifest; do
+              sed -i '' 's/gnat_native = "=15.2.1"/gnat_native = "=15.3.1"/' "$manifest"
+              echo "pinned 15.3.1 in $manifest"
+            done
+          # GCC otherwise links against the Command Line Tools SDK, whose
+          # library stubs name architectures (arm64e.x1) the selected Xcode's
+          # ld does not know, and every link fails. The SDK of that Xcode
+          # matches its ld.
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
 
       - name: Raise Alire solver timeout so slow runners get a complete solution
         # Default solver.timeout is 5 s (+10 s grace); a large graph on a slow
@@ -261,14 +291,21 @@ jobs:
             echo "::error::launcher --smoke did not report PASS"
             exit 1
           fi
+          # The fixture gives every application an icon, so the icon check must
+          # have been made, not passed for want of an icon to draw.
+          if ! printf '%s\n' "$out" | tr -d '\r' | grep -q "have_icon=TRUE"; then
+            echo "::error::launcher --smoke found no application icon in the fixture; the icon check passed vacuously"
+            exit 1
+          fi
 
       # The same gate on the other hosts, with lavapipe set up exactly as files
       # sets it up: from MSYS2 on Windows (registered in HKLM too, because the
       # runner's elevated shell has a loader that ignores VK_ICD_FILENAMES),
       # from Homebrew on macOS (the Intel runner has no Metal device, so
       # MoltenVK is only the fallback). The applications there are the host's
-      # own -- Start Menu shortcuts, .app bundles -- which carry no icon, and the
-      # smoke asks for icon ink only when some application has one.
+      # own -- Start Menu shortcuts, .app bundles -- from which launcher reads no
+      # icon, and the smoke asks for icon ink only when some application has
+      # one; it prints have_icon, and the step says when the check was not made.
       - name: Live render smoke (Windows and macOS, software Vulkan)
         if: runner.os != 'Linux'
         timeout-minutes: 30
@@ -313,6 +350,12 @@ jobs:
           if ! printf '%s\n' "$out" | tr -d '\r' | grep -qx "launcher smoke: PASS"; then
             echo "::error::launcher --smoke did not report PASS on $MATRIX_OS"
             exit 1
+          fi
+          # launcher reads no icon from a Start Menu shortcut or an .app bundle,
+          # so there is no fixture here that could give one, and the icon check
+          # is not made on this host. Say so rather than let a PASS imply it.
+          if printf '%s\n' "$out" | tr -d '\r' | grep -q "have_icon=FALSE"; then
+            echo "::notice::launcher smoke on $MATRIX_OS: no application has an icon, so icons were not checked"
           fi
 
       # A catalogue can be well-formed and still have drifted from the
