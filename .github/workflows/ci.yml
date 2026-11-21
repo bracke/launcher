@@ -197,7 +197,7 @@ jobs:
           packages="mingw-w64-x86_64-vulkan-loader
                     mingw-w64-x86_64-glib2
                     mingw-w64-x86_64-gdk-pixbuf2
-                    mingw-w64-x86_64-glfw
+                    mingw-w64-ucrt-x86_64-glfw
                     mingw-w64-x86_64-openssl"
 
           # The mirrors stall often enough to matter -- a sync dies on "less than 1
@@ -233,7 +233,10 @@ jobs:
           # ld resolves -l<name> through LIBRARY_PATH; the DLLs must also be on PATH
           # for the test binary to start.
           echo "CPATH=C:/msys64/mingw64/include" >> "$GITHUB_ENV"
-          echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=C:/msys64/mingw64/lib;C:/msys64/ucrt64/lib" >> "$GITHUB_ENV"
+          # MSYS2 dropped glfw from MINGW64; it comes from UCRT64 (linked via its DLL
+          # import library). Each line is prepended to PATH, so MINGW64 stays first.
+          echo "C:\msys64\ucrt64\bin" >> "$GITHUB_PATH"
           echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
 
       - name: Set up Alire
